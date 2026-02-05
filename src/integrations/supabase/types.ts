@@ -46,6 +46,84 @@ export type Database = {
           },
         ]
       }
+      action_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          endpoint_id: string | null
+          id: string
+          input_schema: Json
+          is_enabled: boolean
+          name: string
+          output_schema: Json | null
+          project_id: string
+          rate_limit_requests: number | null
+          rate_limit_window_seconds: number | null
+          requires_approval: boolean
+          retry_config: Json | null
+          status: Database["public"]["Enums"]["resource_status"]
+          timeout_ms: number | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description: string
+          endpoint_id?: string | null
+          id?: string
+          input_schema: Json
+          is_enabled?: boolean
+          name: string
+          output_schema?: Json | null
+          project_id: string
+          rate_limit_requests?: number | null
+          rate_limit_window_seconds?: number | null
+          requires_approval?: boolean
+          retry_config?: Json | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          timeout_ms?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          endpoint_id?: string | null
+          id?: string
+          input_schema?: Json
+          is_enabled?: boolean
+          name?: string
+          output_schema?: Json | null
+          project_id?: string
+          rate_limit_requests?: number | null
+          rate_limit_window_seconds?: number | null
+          requires_approval?: boolean
+          retry_config?: Json | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          timeout_ms?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_templates_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_actions: {
         Row: {
           created_at: string
@@ -93,6 +171,199 @@ export type Database = {
           },
         ]
       }
+      api_sources: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          parsed_at: string | null
+          project_id: string
+          source_type: Database["public"]["Enums"]["api_source_type"]
+          spec_content: Json | null
+          spec_hash: string | null
+          spec_url: string | null
+          status: Database["public"]["Enums"]["resource_status"]
+          updated_at: string
+          validation_errors: Json | null
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          parsed_at?: string | null
+          project_id: string
+          source_type?: Database["public"]["Enums"]["api_source_type"]
+          spec_content?: Json | null
+          spec_hash?: string | null
+          spec_url?: string | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          updated_at?: string
+          validation_errors?: Json | null
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          parsed_at?: string | null
+          project_id?: string
+          source_type?: Database["public"]["Enums"]["api_source_type"]
+          spec_content?: Json | null
+          spec_hash?: string | null
+          spec_url?: string | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          updated_at?: string
+          validation_errors?: Json | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_sources_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_policies: {
+        Row: {
+          approver_roles: Database["public"]["Enums"]["app_role"][]
+          approver_users: string[] | null
+          auto_reject_on_timeout: boolean
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notification_channels: Json | null
+          organization_id: string
+          required_approvals: number
+          timeout_hours: number | null
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          approver_roles: Database["public"]["Enums"]["app_role"][]
+          approver_users?: string[] | null
+          auto_reject_on_timeout?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notification_channels?: Json | null
+          organization_id: string
+          required_approvals?: number
+          timeout_hours?: number | null
+          trigger_config: Json
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          approver_roles?: Database["public"]["Enums"]["app_role"][]
+          approver_users?: string[] | null
+          auto_reject_on_timeout?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notification_channels?: Json | null
+          organization_id?: string
+          required_approvals?: number
+          timeout_hours?: number | null
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_policies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_requests: {
+        Row: {
+          action_type: string
+          approvals: Json | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          organization_id: string
+          policy_id: string
+          rejections: Json | null
+          request_data: Json | null
+          requested_by: string | null
+          resolved_at: string | null
+          resource_id: string
+          resource_type: string
+          status: Database["public"]["Enums"]["approval_status"]
+        }
+        Insert: {
+          action_type: string
+          approvals?: Json | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          organization_id: string
+          policy_id: string
+          rejections?: Json | null
+          request_data?: Json | null
+          requested_by?: string | null
+          resolved_at?: string | null
+          resource_id: string
+          resource_type: string
+          status?: Database["public"]["Enums"]["approval_status"]
+        }
+        Update: {
+          action_type?: string
+          approvals?: Json | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          organization_id?: string
+          policy_id?: string
+          rejections?: Json | null
+          request_data?: Json | null
+          requested_by?: string | null
+          resolved_at?: string | null
+          resource_id?: string
+          resource_type?: string
+          status?: Database["public"]["Enums"]["approval_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_requests_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "approval_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -136,6 +407,299 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      endpoints: {
+        Row: {
+          api_source_id: string
+          created_at: string
+          description: string | null
+          header_parameters: Json | null
+          id: string
+          is_deprecated: boolean
+          method: Database["public"]["Enums"]["http_method"]
+          name: string
+          operation_id: string | null
+          path: string
+          path_parameters: Json | null
+          query_parameters: Json | null
+          request_body_schema: Json | null
+          response_schemas: Json | null
+          status: Database["public"]["Enums"]["resource_status"]
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          api_source_id: string
+          created_at?: string
+          description?: string | null
+          header_parameters?: Json | null
+          id?: string
+          is_deprecated?: boolean
+          method: Database["public"]["Enums"]["http_method"]
+          name: string
+          operation_id?: string | null
+          path: string
+          path_parameters?: Json | null
+          query_parameters?: Json | null
+          request_body_schema?: Json | null
+          response_schemas?: Json | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          api_source_id?: string
+          created_at?: string
+          description?: string | null
+          header_parameters?: Json | null
+          id?: string
+          is_deprecated?: boolean
+          method?: Database["public"]["Enums"]["http_method"]
+          name?: string
+          operation_id?: string | null
+          path?: string
+          path_parameters?: Json | null
+          query_parameters?: Json | null
+          request_body_schema?: Json | null
+          response_schemas?: Json | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "endpoints_api_source_id_fkey"
+            columns: ["api_source_id"]
+            isOneToOne: false
+            referencedRelation: "api_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      environment_configs: {
+        Row: {
+          base_url: string | null
+          created_at: string
+          created_by: string | null
+          default_headers: Json | null
+          default_timeout_ms: number | null
+          environment: Database["public"]["Enums"]["environment_type"]
+          features: Json | null
+          global_rate_limit_requests: number | null
+          global_rate_limit_window_seconds: number | null
+          id: string
+          is_active: boolean
+          log_level: string | null
+          name: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_headers?: Json | null
+          default_timeout_ms?: number | null
+          environment: Database["public"]["Enums"]["environment_type"]
+          features?: Json | null
+          global_rate_limit_requests?: number | null
+          global_rate_limit_window_seconds?: number | null
+          id?: string
+          is_active?: boolean
+          log_level?: string | null
+          name: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_headers?: Json | null
+          default_timeout_ms?: number | null
+          environment?: Database["public"]["Enums"]["environment_type"]
+          features?: Json | null
+          global_rate_limit_requests?: number | null
+          global_rate_limit_window_seconds?: number | null
+          id?: string
+          is_active?: boolean
+          log_level?: string | null
+          name?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "environment_configs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      execution_runs: {
+        Row: {
+          action_template_id: string | null
+          agent_session_id: string | null
+          approval_request_id: string | null
+          attempt_number: number
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          environment: Database["public"]["Enums"]["environment_type"]
+          error_details: Json | null
+          error_message: string | null
+          headers_sent: Json | null
+          id: string
+          input_parameters: Json | null
+          ip_address: unknown
+          organization_id: string
+          output_data: Json | null
+          project_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["execution_status"]
+          triggered_by: string
+          triggered_by_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action_template_id?: string | null
+          agent_session_id?: string | null
+          approval_request_id?: string | null
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          environment?: Database["public"]["Enums"]["environment_type"]
+          error_details?: Json | null
+          error_message?: string | null
+          headers_sent?: Json | null
+          id?: string
+          input_parameters?: Json | null
+          ip_address?: unknown
+          organization_id: string
+          output_data?: Json | null
+          project_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["execution_status"]
+          triggered_by: string
+          triggered_by_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action_template_id?: string | null
+          agent_session_id?: string | null
+          approval_request_id?: string | null
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          environment?: Database["public"]["Enums"]["environment_type"]
+          error_details?: Json | null
+          error_message?: string | null
+          headers_sent?: Json | null
+          id?: string
+          input_parameters?: Json | null
+          ip_address?: unknown
+          organization_id?: string
+          output_data?: Json | null
+          project_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["execution_status"]
+          triggered_by?: string
+          triggered_by_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_runs_action_template_id_fkey"
+            columns: ["action_template_id"]
+            isOneToOne: false
+            referencedRelation: "action_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_runs_approval_request_id_fkey"
+            columns: ["approval_request_id"]
+            isOneToOne: false
+            referencedRelation: "approval_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mcp_exports: {
+        Row: {
+          checksum: string | null
+          created_at: string
+          exported_by: string | null
+          file_size_bytes: number | null
+          format: string
+          id: string
+          included_actions: string[] | null
+          is_latest: boolean
+          mcp_manifest: Json
+          project_id: string
+          release_notes: string | null
+          status: Database["public"]["Enums"]["resource_status"]
+          version: string
+          version_number: number
+        }
+        Insert: {
+          checksum?: string | null
+          created_at?: string
+          exported_by?: string | null
+          file_size_bytes?: number | null
+          format?: string
+          id?: string
+          included_actions?: string[] | null
+          is_latest?: boolean
+          mcp_manifest: Json
+          project_id: string
+          release_notes?: string | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          version: string
+          version_number: number
+        }
+        Update: {
+          checksum?: string | null
+          created_at?: string
+          exported_by?: string | null
+          file_size_bytes?: number | null
+          format?: string
+          id?: string
+          included_actions?: string[] | null
+          is_latest?: boolean
+          mcp_manifest?: Json
+          project_id?: string
+          release_notes?: string | null
+          status?: Database["public"]["Enums"]["resource_status"]
+          version?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_exports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -198,6 +762,74 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      permission_policies: {
+        Row: {
+          allowed_actions: string[]
+          conditions: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          effect: Database["public"]["Enums"]["policy_effect"]
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          priority: number
+          resource_id: string | null
+          resource_type: string
+          subject_id: string | null
+          subject_role: Database["public"]["Enums"]["app_role"] | null
+          subject_type: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_actions: string[]
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effect?: Database["public"]["Enums"]["policy_effect"]
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          priority?: number
+          resource_id?: string | null
+          resource_type: string
+          subject_id?: string | null
+          subject_role?: Database["public"]["Enums"]["app_role"] | null
+          subject_type: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_actions?: string[]
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effect?: Database["public"]["Enums"]["policy_effect"]
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          priority?: number
+          resource_id?: string | null
+          resource_type?: string
+          subject_id?: string | null
+          subject_role?: Database["public"]["Enums"]["app_role"] | null
+          subject_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_policies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -276,6 +908,91 @@ export type Database = {
           },
         ]
       }
+      secrets: {
+        Row: {
+          access_count: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          encrypted_value: string
+          environment: Database["public"]["Enums"]["environment_type"] | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          last_accessed_at: string | null
+          last_rotated_at: string | null
+          name: string
+          organization_id: string
+          previous_version_id: string | null
+          project_id: string | null
+          rotation_reminder_days: number | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          access_count?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          encrypted_value: string
+          environment?: Database["public"]["Enums"]["environment_type"] | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          last_rotated_at?: string | null
+          name: string
+          organization_id: string
+          previous_version_id?: string | null
+          project_id?: string | null
+          rotation_reminder_days?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          access_count?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          encrypted_value?: string
+          environment?: Database["public"]["Enums"]["environment_type"] | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          last_rotated_at?: string | null
+          name?: string
+          organization_id?: string
+          previous_version_id?: string | null
+          project_id?: string | null
+          rotation_reminder_days?: number | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "secrets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "secrets_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "secrets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "secrets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -299,8 +1016,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_endpoint: {
+        Args: { _endpoint_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_access_project: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_project_org_role: {
+        Args: { _project_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
       has_role: {
@@ -316,8 +1045,28 @@ export type Database = {
       }
     }
     Enums: {
+      api_source_type: "openapi" | "swagger" | "graphql" | "grpc" | "manual"
       app_role: "owner" | "admin" | "member" | "viewer"
+      approval_status: "pending" | "approved" | "rejected" | "expired"
+      environment_type: "development" | "staging" | "production"
+      execution_status:
+        | "pending"
+        | "running"
+        | "success"
+        | "failed"
+        | "timeout"
+        | "cancelled"
+      http_method:
+        | "GET"
+        | "POST"
+        | "PUT"
+        | "PATCH"
+        | "DELETE"
+        | "HEAD"
+        | "OPTIONS"
+      policy_effect: "allow" | "deny"
       project_status: "draft" | "active" | "archived"
+      resource_status: "pending" | "active" | "disabled" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -445,8 +1194,22 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      api_source_type: ["openapi", "swagger", "graphql", "grpc", "manual"],
       app_role: ["owner", "admin", "member", "viewer"],
+      approval_status: ["pending", "approved", "rejected", "expired"],
+      environment_type: ["development", "staging", "production"],
+      execution_status: [
+        "pending",
+        "running",
+        "success",
+        "failed",
+        "timeout",
+        "cancelled",
+      ],
+      http_method: ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+      policy_effect: ["allow", "deny"],
       project_status: ["draft", "active", "archived"],
+      resource_status: ["pending", "active", "disabled", "archived"],
     },
   },
 } as const
