@@ -1,15 +1,13 @@
 /**
  * Permission evaluation edge function
  * Server-side enforcement of permissions before action execution
+ * 
+ * SECURITY: Uses strict CORS allowlist - see _shared/cors.ts for details
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { validateCors, getCorsHeaders } from "../_shared/cors.ts";
 
 interface EvaluateRequest {
   action_template_id?: string;
@@ -20,10 +18,11 @@ interface EvaluateRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // SECURITY: Validate CORS - reject requests from non-allowed origins
+  const cors = validateCors(req);
+  if (cors.response) return cors.response;
+  
+  const corsHeaders = cors.headers;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -234,9 +233,10 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error:", error);
+    const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: "Internal server error", allowed: false }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

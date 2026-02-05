@@ -2,15 +2,13 @@
  * Action Runner Edge Function
  * Robust execution engine with validation, constraints, retries, idempotency
  * All secrets are handled server-side and never exposed to clients
+ * 
+ * SECURITY: Uses strict CORS allowlist - see _shared/cors.ts for details
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { validateCors, getCorsHeaders } from "../_shared/cors.ts";
 
 interface RunActionRequest {
   action_template_id: string;
@@ -215,9 +213,12 @@ async function fetchWithRetry(
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // SECURITY: Validate CORS - reject requests from non-allowed origins
+  const cors = validateCors(req);
+  if (cors.response) return cors.response;
+  
+  // Helper to create responses with validated CORS headers
+  const corsHeaders = cors.headers;
 
   const startTime = Date.now();
   let executionId = "";
@@ -649,6 +650,9 @@ serve(async (req) => {
         .eq("id", executionId);
     }
 
+    // Get CORS headers for error response
+    const { headers: errorCorsHeaders } = getCorsHeaders(req);
+
     return new Response(
       JSON.stringify({
         success: false,
@@ -660,7 +664,7 @@ serve(async (req) => {
         redacted_request: {},
         redacted_response: {},
       } as ActionResult),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
