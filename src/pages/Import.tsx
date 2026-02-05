@@ -14,7 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { EndpointsPreview } from "@/components/import/EndpointsPreview";
 import { ImportErrors } from "@/components/import/ImportErrors";
+import { ProjectSetup } from "@/components/onboarding/ProjectSetup";
 import { useApiImport } from "@/hooks/useApiImport";
+import { useCurrentProject } from "@/hooks/useCurrentProject";
 import {
   Upload,
   Link as LinkIcon,
@@ -27,15 +29,20 @@ import {
   FileUp,
 } from "lucide-react";
 
-// Temporary project ID - in real app, this would come from context/route
-const TEMP_PROJECT_ID = "00000000-0000-0000-0000-000000000000";
-
 export default function Import() {
   const [specUrl, setSpecUrl] = useState("");
   const [specJson, setSpecJson] = useState("");
   const [activeTab, setActiveTab] = useState("upload");
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    currentProject,
+    organization,
+    isLoading: projectLoading,
+    needsOnboarding,
+    createDefaultProject,
+  } = useCurrentProject();
 
   const {
     status,
@@ -48,7 +55,7 @@ export default function Import() {
     setSelectedEndpoints,
     reset,
   } = useApiImport({
-    projectId: TEMP_PROJECT_ID,
+    projectId: currentProject?.id || "",
     onSuccess: () => {
       // Reset form after successful save
       setSpecUrl("");
@@ -104,9 +111,39 @@ export default function Import() {
     }
   };
 
+  // Show loading state
+  if (projectLoading) {
+    return (
+      <DashboardLayout title="API Import" description="Import your OpenAPI specification">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show onboarding if user has no project
+  if (needsOnboarding) {
+    return (
+      <DashboardLayout title="API Import" description="Import your OpenAPI specification">
+        <ProjectSetup
+          onCreateProject={createDefaultProject}
+          hasOrganization={!!organization}
+        />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="API Import" description="Import your OpenAPI specification">
       <div className="space-y-6">
+        {/* Current project indicator */}
+        {currentProject && (
+          <div className="text-sm text-muted-foreground">
+            Projet actif : <span className="font-medium text-foreground">{currentProject.name}</span>
+          </div>
+        )}
+
         {/* Info banner */}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="flex items-start gap-4 py-4">
