@@ -71,18 +71,30 @@ export function useApiImport({ projectId, onSuccess }: UseApiImportOptions) {
   };
 
   /**
-   * Fetch and parse OpenAPI spec from URL
+   * Fetch and parse OpenAPI spec from URL via proxy Edge Function
+   * This bypasses CORS restrictions by fetching server-side
    */
   const fetchFromUrl = async (url: string) => {
     setState((prev) => ({ ...prev, status: "parsing" }));
 
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const { data, error } = await supabase.functions.invoke('fetch-openapi-spec', {
+        body: { url }
+      });
+
+      if (error) {
+        throw new Error(error.message || "Proxy fetch failed");
       }
-      const content = await response.text();
-      return await parseContent(content, url);
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (!data?.content) {
+        throw new Error("No content received");
+      }
+
+      return await parseContent(data.content, url);
     } catch (error: any) {
       setState((prev) => ({ ...prev, status: "error" }));
       toast({
