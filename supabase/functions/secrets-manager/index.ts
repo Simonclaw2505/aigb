@@ -2,15 +2,13 @@
  * Secrets Manager Edge Function
  * Secure credential storage and retrieval using server-side encryption
  * Secrets are NEVER exposed to the client - only used server-side
+ * 
+ * SECURITY: Uses strict CORS allowlist - see _shared/cors.ts for details
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { validateCors, getCorsHeaders } from "../_shared/cors.ts";
 
 // Use a server-side encryption key (stored as Supabase secret)
 const ENCRYPTION_KEY = Deno.env.get("SECRETS_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -91,9 +89,11 @@ async function decrypt(ciphertext: string, key: string): Promise<string> {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // SECURITY: Validate CORS - reject requests from non-allowed origins
+  const cors = validateCors(req);
+  if (cors.response) return cors.response;
+  
+  const corsHeaders = cors.headers;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -388,9 +388,10 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error("Error:", error);
+    const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

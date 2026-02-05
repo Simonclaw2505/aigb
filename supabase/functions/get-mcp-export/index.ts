@@ -1,14 +1,19 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+/**
+ * Get MCP Export Edge Function
+ * Returns MCP manifest for a project in JSON or YAML format
+ * 
+ * SECURITY: Uses strict CORS allowlist - see _shared/cors.ts for details
+ */
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { validateCors, getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  // SECURITY: Validate CORS - reject requests from non-allowed origins
+  const cors = validateCors(req);
+  if (cors.response) return cors.response;
+  
+  const corsHeaders = cors.headers;
 
   try {
     const url = new URL(req.url);
@@ -56,9 +61,10 @@ Deno.serve(async (req) => {
       },
     });
   } catch (err) {
+    const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...errorCorsHeaders, "Content-Type": "application/json" },
     });
   }
 });
