@@ -21,6 +21,7 @@ import Permissions from "./pages/Permissions";
 import Simulator from "./pages/Simulator";
 import AuditLogs from "./pages/AuditLogs";
 import Export from "./pages/Export";
+import Security from "./pages/Security";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -100,6 +101,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Export />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/security"
+              element={
+                <ProtectedRoute>
+                  <Security />
                 </ProtectedRoute>
               }
             />
