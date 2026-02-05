@@ -62,6 +62,7 @@ export type Database = {
           input_schema: Json
           is_enabled: boolean
           is_idempotent: boolean
+          is_reversible: boolean
           name: string
           output_schema: Json | null
           project_id: string
@@ -70,6 +71,7 @@ export type Database = {
           requires_approval: boolean
           retry_config: Json | null
           risk_level: Database["public"]["Enums"]["action_risk_level"]
+          rollback_config: Json | null
           status: Database["public"]["Enums"]["resource_status"]
           timeout_ms: number | null
           updated_at: string
@@ -90,6 +92,7 @@ export type Database = {
           input_schema: Json
           is_enabled?: boolean
           is_idempotent?: boolean
+          is_reversible?: boolean
           name: string
           output_schema?: Json | null
           project_id: string
@@ -98,6 +101,7 @@ export type Database = {
           requires_approval?: boolean
           retry_config?: Json | null
           risk_level?: Database["public"]["Enums"]["action_risk_level"]
+          rollback_config?: Json | null
           status?: Database["public"]["Enums"]["resource_status"]
           timeout_ms?: number | null
           updated_at?: string
@@ -118,6 +122,7 @@ export type Database = {
           input_schema?: Json
           is_enabled?: boolean
           is_idempotent?: boolean
+          is_reversible?: boolean
           name?: string
           output_schema?: Json | null
           project_id?: string
@@ -126,6 +131,7 @@ export type Database = {
           requires_approval?: boolean
           retry_config?: Json | null
           risk_level?: Database["public"]["Enums"]["action_risk_level"]
+          rollback_config?: Json | null
           status?: Database["public"]["Enums"]["resource_status"]
           timeout_ms?: number | null
           updated_at?: string
@@ -754,7 +760,9 @@ export type Database = {
           idempotency_key: string | null
           input_parameters: Json | null
           ip_address: unknown
+          is_rollback: boolean
           organization_id: string
+          original_execution_id: string | null
           output_data: Json | null
           project_id: string
           redacted_request: Json | null
@@ -762,6 +770,9 @@ export type Database = {
           request_metadata: Json | null
           response_metadata: Json | null
           retry_count: number | null
+          rollback_execution_id: string | null
+          rolled_back_at: string | null
+          rolled_back_by: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["execution_status"]
           triggered_by: string
@@ -786,7 +797,9 @@ export type Database = {
           idempotency_key?: string | null
           input_parameters?: Json | null
           ip_address?: unknown
+          is_rollback?: boolean
           organization_id: string
+          original_execution_id?: string | null
           output_data?: Json | null
           project_id: string
           redacted_request?: Json | null
@@ -794,6 +807,9 @@ export type Database = {
           request_metadata?: Json | null
           response_metadata?: Json | null
           retry_count?: number | null
+          rollback_execution_id?: string | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["execution_status"]
           triggered_by: string
@@ -818,7 +834,9 @@ export type Database = {
           idempotency_key?: string | null
           input_parameters?: Json | null
           ip_address?: unknown
+          is_rollback?: boolean
           organization_id?: string
+          original_execution_id?: string | null
           output_data?: Json | null
           project_id?: string
           redacted_request?: Json | null
@@ -826,6 +844,9 @@ export type Database = {
           request_metadata?: Json | null
           response_metadata?: Json | null
           retry_count?: number | null
+          rollback_execution_id?: string | null
+          rolled_back_at?: string | null
+          rolled_back_by?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["execution_status"]
           triggered_by?: string
@@ -862,10 +883,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "execution_runs_original_execution_id_fkey"
+            columns: ["original_execution_id"]
+            isOneToOne: false
+            referencedRelation: "execution_runs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "execution_runs_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_runs_rollback_execution_id_fkey"
+            columns: ["rollback_execution_id"]
+            isOneToOne: false
+            referencedRelation: "execution_runs"
             referencedColumns: ["id"]
           },
         ]
