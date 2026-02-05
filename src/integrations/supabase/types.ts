@@ -264,6 +264,107 @@ export type Database = {
           },
         ]
       }
+      api_connectors: {
+        Row: {
+          api_source_id: string | null
+          auth_config: Json | null
+          auth_type: string
+          base_url: string
+          created_at: string
+          created_by: string | null
+          credential_secret_id: string | null
+          default_headers: Json | null
+          description: string | null
+          id: string
+          is_active: boolean
+          last_error: string | null
+          last_used_at: string | null
+          name: string
+          oauth_refresh_secret_id: string | null
+          project_id: string
+          rate_limit_requests: number | null
+          rate_limit_window_seconds: number | null
+          retry_config: Json | null
+          timeout_ms: number | null
+          updated_at: string
+        }
+        Insert: {
+          api_source_id?: string | null
+          auth_config?: Json | null
+          auth_type?: string
+          base_url: string
+          created_at?: string
+          created_by?: string | null
+          credential_secret_id?: string | null
+          default_headers?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_error?: string | null
+          last_used_at?: string | null
+          name: string
+          oauth_refresh_secret_id?: string | null
+          project_id: string
+          rate_limit_requests?: number | null
+          rate_limit_window_seconds?: number | null
+          retry_config?: Json | null
+          timeout_ms?: number | null
+          updated_at?: string
+        }
+        Update: {
+          api_source_id?: string | null
+          auth_config?: Json | null
+          auth_type?: string
+          base_url?: string
+          created_at?: string
+          created_by?: string | null
+          credential_secret_id?: string | null
+          default_headers?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_error?: string | null
+          last_used_at?: string | null
+          name?: string
+          oauth_refresh_secret_id?: string | null
+          project_id?: string
+          rate_limit_requests?: number | null
+          rate_limit_window_seconds?: number | null
+          retry_config?: Json | null
+          timeout_ms?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_connectors_api_source_id_fkey"
+            columns: ["api_source_id"]
+            isOneToOne: false
+            referencedRelation: "api_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_connectors_credential_secret_id_fkey"
+            columns: ["credential_secret_id"]
+            isOneToOne: false
+            referencedRelation: "secrets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_connectors_oauth_refresh_secret_id_fkey"
+            columns: ["oauth_refresh_secret_id"]
+            isOneToOne: false
+            referencedRelation: "secrets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_connectors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_sources: {
         Row: {
           created_at: string
@@ -641,18 +742,26 @@ export type Database = {
           approval_request_id: string | null
           attempt_number: number
           completed_at: string | null
+          connector_id: string | null
           created_at: string
+          diff_summary: Json | null
           duration_ms: number | null
           environment: Database["public"]["Enums"]["environment_type"]
           error_details: Json | null
           error_message: string | null
           headers_sent: Json | null
           id: string
+          idempotency_key: string | null
           input_parameters: Json | null
           ip_address: unknown
           organization_id: string
           output_data: Json | null
           project_id: string
+          redacted_request: Json | null
+          redacted_response: Json | null
+          request_metadata: Json | null
+          response_metadata: Json | null
+          retry_count: number | null
           started_at: string | null
           status: Database["public"]["Enums"]["execution_status"]
           triggered_by: string
@@ -665,18 +774,26 @@ export type Database = {
           approval_request_id?: string | null
           attempt_number?: number
           completed_at?: string | null
+          connector_id?: string | null
           created_at?: string
+          diff_summary?: Json | null
           duration_ms?: number | null
           environment?: Database["public"]["Enums"]["environment_type"]
           error_details?: Json | null
           error_message?: string | null
           headers_sent?: Json | null
           id?: string
+          idempotency_key?: string | null
           input_parameters?: Json | null
           ip_address?: unknown
           organization_id: string
           output_data?: Json | null
           project_id: string
+          redacted_request?: Json | null
+          redacted_response?: Json | null
+          request_metadata?: Json | null
+          response_metadata?: Json | null
+          retry_count?: number | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["execution_status"]
           triggered_by: string
@@ -689,18 +806,26 @@ export type Database = {
           approval_request_id?: string | null
           attempt_number?: number
           completed_at?: string | null
+          connector_id?: string | null
           created_at?: string
+          diff_summary?: Json | null
           duration_ms?: number | null
           environment?: Database["public"]["Enums"]["environment_type"]
           error_details?: Json | null
           error_message?: string | null
           headers_sent?: Json | null
           id?: string
+          idempotency_key?: string | null
           input_parameters?: Json | null
           ip_address?: unknown
           organization_id?: string
           output_data?: Json | null
           project_id?: string
+          redacted_request?: Json | null
+          redacted_response?: Json | null
+          request_metadata?: Json | null
+          response_metadata?: Json | null
+          retry_count?: number | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["execution_status"]
           triggered_by?: string
@@ -720,6 +845,13 @@ export type Database = {
             columns: ["approval_request_id"]
             isOneToOne: false
             referencedRelation: "approval_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "execution_runs_connector_id_fkey"
+            columns: ["connector_id"]
+            isOneToOne: false
+            referencedRelation: "api_connectors"
             referencedColumns: ["id"]
           },
           {
