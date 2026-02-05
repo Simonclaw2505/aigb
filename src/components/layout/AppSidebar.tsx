@@ -33,6 +33,7 @@ import {
   LogOut,
   Settings,
   LayoutDashboard,
+  ShieldCheck,
 } from "lucide-react";
 
 // Navigation items grouped by section
@@ -51,6 +52,7 @@ const workflowItems = [
 
 const adminItems = [
   { title: "Audit Logs", url: "/audit-logs", icon: FileText },
+  { title: "Security", url: "/security", icon: ShieldCheck },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
