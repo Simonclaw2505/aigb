@@ -48,13 +48,20 @@ export type Database = {
       }
       action_templates: {
         Row: {
+          auto_generated: boolean
+          constraints: Json | null
           created_at: string
           created_by: string | null
           description: string
           endpoint_id: string | null
+          endpoint_method: string | null
+          endpoint_path: string | null
+          examples: Json | null
           id: string
+          idempotency_key_path: string | null
           input_schema: Json
           is_enabled: boolean
+          is_idempotent: boolean
           name: string
           output_schema: Json | null
           project_id: string
@@ -62,19 +69,27 @@ export type Database = {
           rate_limit_window_seconds: number | null
           requires_approval: boolean
           retry_config: Json | null
+          risk_level: Database["public"]["Enums"]["action_risk_level"]
           status: Database["public"]["Enums"]["resource_status"]
           timeout_ms: number | null
           updated_at: string
           version: number
         }
         Insert: {
+          auto_generated?: boolean
+          constraints?: Json | null
           created_at?: string
           created_by?: string | null
           description: string
           endpoint_id?: string | null
+          endpoint_method?: string | null
+          endpoint_path?: string | null
+          examples?: Json | null
           id?: string
+          idempotency_key_path?: string | null
           input_schema: Json
           is_enabled?: boolean
+          is_idempotent?: boolean
           name: string
           output_schema?: Json | null
           project_id: string
@@ -82,19 +97,27 @@ export type Database = {
           rate_limit_window_seconds?: number | null
           requires_approval?: boolean
           retry_config?: Json | null
+          risk_level?: Database["public"]["Enums"]["action_risk_level"]
           status?: Database["public"]["Enums"]["resource_status"]
           timeout_ms?: number | null
           updated_at?: string
           version?: number
         }
         Update: {
+          auto_generated?: boolean
+          constraints?: Json | null
           created_at?: string
           created_by?: string | null
           description?: string
           endpoint_id?: string | null
+          endpoint_method?: string | null
+          endpoint_path?: string | null
+          examples?: Json | null
           id?: string
+          idempotency_key_path?: string | null
           input_schema?: Json
           is_enabled?: boolean
+          is_idempotent?: boolean
           name?: string
           output_schema?: Json | null
           project_id?: string
@@ -102,6 +125,7 @@ export type Database = {
           rate_limit_window_seconds?: number | null
           requires_approval?: boolean
           retry_config?: Json | null
+          risk_level?: Database["public"]["Enums"]["action_risk_level"]
           status?: Database["public"]["Enums"]["resource_status"]
           timeout_ms?: number | null
           updated_at?: string
@@ -1045,6 +1069,11 @@ export type Database = {
       }
     }
     Enums: {
+      action_risk_level:
+        | "read_only"
+        | "safe_write"
+        | "risky_write"
+        | "irreversible"
       api_source_type: "openapi" | "swagger" | "graphql" | "grpc" | "manual"
       app_role: "owner" | "admin" | "member" | "viewer"
       approval_status: "pending" | "approved" | "rejected" | "expired"
@@ -1194,6 +1223,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      action_risk_level: [
+        "read_only",
+        "safe_write",
+        "risky_write",
+        "irreversible",
+      ],
       api_source_type: ["openapi", "swagger", "graphql", "grpc", "manual"],
       app_role: ["owner", "admin", "member", "viewer"],
       approval_status: ["pending", "approved", "rejected", "expired"],
