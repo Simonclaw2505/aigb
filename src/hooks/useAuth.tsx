@@ -11,6 +11,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  organizationId: string | undefined;
   signOut: () => Promise<void>;
 }
 
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -41,14 +43,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Fetch user's organization when authenticated
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single()
+        .then(({ data }) => {
+          setOrganizationId(data?.organization_id ?? undefined);
+        });
+    } else {
+      setOrganizationId(undefined);
+    }
+  }, [user]);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    setOrganizationId(undefined);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut: handleSignOut }}>
+    <AuthContext.Provider value={{ user, session, loading, organizationId, signOut: handleSignOut }}>
       {children}
     </AuthContext.Provider>
   );
