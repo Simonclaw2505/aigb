@@ -1,122 +1,86 @@
 
+# Plan : Corriger l'erreur RLS et implémenter le flux d'onboarding
 
-# Prompt 8 - Complete Implementation Plan
+## Problème identifié
+L'import échoue car :
+1. **Aucune organisation** n'existe pour l'utilisateur connecté
+2. **Aucun projet** n'existe dans la base de données
+3. Le code utilise un `project_id` fictif (`00000000-0000-0000-0000-000000000000`) qui n'existe pas
+4. Les politiques de sécurité (RLS) vérifient que l'utilisateur appartient à l'organisation du projet
 
-## Current Status
-The previous attempts **failed to create the UI components**. Here's what exists vs what's missing:
+## Solution proposée
 
-| Component | Status |
-|-----------|--------|
-| Database migration (rollback fields) | ✅ Done |
-| `rollback-execution` Edge Function | ✅ Done |
-| `src/components/audit/DiffViewer.tsx` | ❌ Missing |
-| `src/components/audit/RollbackDialog.tsx` | ❌ Missing |
-| `src/components/audit/ExecutionTimeline.tsx` | ❌ Missing |
-| `src/hooks/useAuditLogs.ts` | ❌ Missing |
-| `AuditLogs.tsx` data integration | ❌ Still empty |
+### Étape 1 : Créer un hook de gestion du projet actif
+Créer `src/hooks/useCurrentProject.ts` qui :
+- Récupère les projets de l'utilisateur
+- Gère la sélection du projet actif
+- Crée automatiquement une organisation et un projet par défaut si l'utilisateur n'en a pas
 
----
+### Étape 2 : Créer un composant d'onboarding
+Créer `src/components/onboarding/ProjectSetup.tsx` qui :
+- Détecte si l'utilisateur n'a pas d'organisation/projet
+- Propose un formulaire simple pour créer son premier projet
+- Crée l'organisation et le projet en une seule action
 
-## Implementation Steps
+### Étape 3 : Mettre à jour la page Import
+Modifier `src/pages/Import.tsx` pour :
+- Utiliser le vrai `project_id` depuis le hook
+- Afficher l'onboarding si aucun projet n'existe
+- Bloquer l'import tant que l'utilisateur n'a pas de projet
 
-### 1. Create useAuditLogs Hook
-**File:** `src/hooks/useAuditLogs.ts`
-
-Fetch and combine data from:
-- `audit_logs` table (general activity)
-- `execution_runs` table with `action_templates` join (detailed execution history)
-
-Features:
-- Filtering by project, resource type, date range
-- Real-time updates option
-- Pagination support
-
-### 2. Create DiffViewer Component
-**File:** `src/components/audit/DiffViewer.tsx`
-
-Display before/after snapshots for write actions:
-- Compare two JSON objects
-- Highlight added (green), removed (red), changed (yellow) keys
-- Collapsible nested objects
-- Handle null/missing values gracefully
-
-### 3. Create ExecutionTimeline Component
-**File:** `src/components/audit/ExecutionTimeline.tsx`
-
-Visual timeline showing:
-- Action name and status (success/failed/running/rolled_back)
-- Risk level badge
-- Who triggered it (user vs bot/agent)
-- Timestamps with relative time
-- Expandable details (inputs, outputs, diff)
-- Rollback button for reversible actions
-
-### 4. Create RollbackDialog Component
-**File:** `src/components/audit/RollbackDialog.tsx`
-
-Confirmation dialog with:
-- Original action details
-- Warning about reversal
-- Optional reason input
-- Calls `rollback-execution` Edge Function
-
-### 5. Update AuditLogs Page
-**File:** `src/pages/AuditLogs.tsx`
-
-Integrate all components:
-- Tabbed interface: "Audit Trail" | "Execution Timeline"
-- Connect to `useAuditLogs` hook
-- Add date range picker
-- Working search and filters
-- Export functionality
+### Étape 4 : Mettre à jour la page Projects
+Modifier `src/pages/Projects.tsx` pour :
+- Récupérer les vrais projets depuis la base
+- Implémenter la création de projet avec création d'organisation si nécessaire
 
 ---
 
-## Technical Details
+## Détails techniques
 
-### Data Flow
+### Nouveau hook : useCurrentProject
 ```text
-AuditLogs.tsx
-    ├── useAuditLogs() → fetches audit_logs + execution_runs
-    ├── ExecutionTimeline
-    │       ├── DiffViewer (for write actions with diff_summary)
-    │       └── RollbackDialog (for reversible actions)
-    └── Filters/Search
+src/hooks/useCurrentProject.ts
+├── Récupère l'organisation de l'utilisateur
+├── Récupère les projets de l'organisation
+├── Gère le projet actif (localStorage + state)
+├── Fonction createDefaultProject() :
+│   ├── Crée une organisation si absente
+│   ├── Ajoute l'utilisateur comme owner
+│   └── Crée un projet "Mon Premier Projet"
+└── Retourne { currentProject, projects, isLoading, createDefaultProject }
 ```
 
-### Key Types
-```typescript
-interface ExecutionRun {
-  id: string;
-  action_template: {
-    name: string;
-    is_reversible: boolean;
-    rollback_config: RollbackConfig | null;
-    risk_level: string;
-  };
-  status: 'pending' | 'running' | 'success' | 'failed';
-  input_parameters: Record<string, unknown>;
-  output_data: Record<string, unknown>;
-  diff_summary: { before: object; after: object } | null;
-  rolled_back_at: string | null;
-  is_rollback: boolean;
-  original_execution_id: string | null;
-}
+### Flux de données
+```text
+Utilisateur connecté
+       │
+       ▼
+┌──────────────────┐
+│ useCurrentProject│
+└────────┬─────────┘
+         │
+    A-t-il une org?
+         │
+    ┌────┴────┐
+    Non      Oui
+    │         │
+    ▼         ▼
+Afficher   A-t-il un projet?
+Onboarding    │
+    │    ┌────┴────┐
+    │    Non      Oui
+    │    │         │
+    │    ▼         ▼
+    └──► Afficher  Afficher
+         Onboarding Import normal
 ```
 
-### RollbackDialog API Call
-```typescript
-const response = await supabase.functions.invoke('rollback-execution', {
-  body: { execution_id, reason }
-});
-```
+### Modifications de fichiers
 
----
-
-## Files to Create/Modify
-1. **Create** `src/hooks/useAuditLogs.ts`
-2. **Create** `src/components/audit/DiffViewer.tsx`
-3. **Create** `src/components/audit/ExecutionTimeline.tsx`
-4. **Create** `src/components/audit/RollbackDialog.tsx`
-5. **Update** `src/pages/AuditLogs.tsx`
-
+| Fichier | Action |
+|---------|--------|
+| `src/hooks/useCurrentProject.ts` | Créer (nouveau) |
+| `src/components/onboarding/ProjectSetup.tsx` | Créer (nouveau) |
+| `src/pages/Import.tsx` | Modifier (utiliser vrai project_id) |
+| `src/pages/Projects.tsx` | Modifier (implémenter CRUD) |
+| `src/pages/Dashboard.tsx` | Modifier (afficher onboarding si pas de projet) |
