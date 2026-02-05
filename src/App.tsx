@@ -1,26 +1,123 @@
+/**
+ * MCP Foundry - Main Application
+ * B2B web app for converting APIs to MCP toolsets
+ */
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+
+// Pages
+import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import Projects from "./pages/Projects";
+import Import from "./pages/Import";
+import Actions from "./pages/Actions";
+import Permissions from "./pages/Permissions";
+import Simulator from "./pages/Simulator";
+import AuditLogs from "./pages/AuditLogs";
+import Export from "./pages/Export";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/auth" element={<Auth />} />
+
+            {/* Protected routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects"
+              element={
+                <ProtectedRoute>
+                  <Projects />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import"
+              element={
+                <ProtectedRoute>
+                  <Import />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/actions"
+              element={
+                <ProtectedRoute>
+                  <Actions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/permissions"
+              element={
+                <ProtectedRoute>
+                  <Permissions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/simulator"
+              element={
+                <ProtectedRoute>
+                  <Simulator />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-logs"
+              element={
+                <ProtectedRoute>
+                  <AuditLogs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/export"
+              element={
+                <ProtectedRoute>
+                  <Export />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Catch-all */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
