@@ -1,121 +1,251 @@
 /**
  * Permissions page for MCP Foundry
- * Configure role-based access control for MCP actions
+ * Two-layer permissions: Agent capabilities + User RBAC/ABAC
  */
 
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, Users, Lock } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Shield, Bot, Users, History, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { AgentCapabilitiesPanel } from "@/components/permissions/AgentCapabilitiesPanel";
+import { UserPermissionsPanel } from "@/components/permissions/UserPermissionsPanel";
+import { PermissionEvaluationLogs } from "@/components/permissions/PermissionEvaluationLogs";
 
-// Available roles
-const roles = ["owner", "admin", "member", "viewer"] as const;
+interface Project {
+  id: string;
+  name: string;
+  organization_id: string;
+}
+
+interface ActionTemplate {
+  id: string;
+  name: string;
+  description: string;
+  risk_level: string;
+}
 
 export default function Permissions() {
-  // TODO: Fetch from database
-  const actions: any[] = [];
+  const { user } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [actionTemplates, setActionTemplates] = useState<ActionTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("agent");
+
+  // Fetch projects
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("projects")
+          .select("id, name, organization_id")
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setProjects(data || []);
+        if (data && data.length > 0) {
+          setSelectedProject(data[0]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch projects:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [user]);
+
+  // Fetch action templates for selected project
+  useEffect(() => {
+    const fetchActionTemplates = async () => {
+      if (!selectedProject) {
+        setActionTemplates([]);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("action_templates")
+          .select("id, name, description, risk_level")
+          .eq("project_id", selectedProject.id)
+          .eq("is_enabled", true)
+          .order("name");
+
+        if (error) throw error;
+        setActionTemplates(data || []);
+      } catch (err) {
+        console.error("Failed to fetch action templates:", err);
+      }
+    };
+
+    fetchActionTemplates();
+  }, [selectedProject]);
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Permissions" description="Configure access control for actions">
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (projects.length === 0) {
+    return (
+      <DashboardLayout title="Permissions" description="Configure access control for actions">
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Shield className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">No projects found</h3>
+            <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
+              Create a project first to configure permissions
+            </p>
+            <Button variant="outline" asChild>
+              <a href="/projects">Go to Projects</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Permissions" description="Configure role-based access for actions">
       <div className="space-y-6">
-        {/* Role overview */}
-        <div className="grid gap-4 md:grid-cols-4">
-          {roles.map((role) => (
-            <Card key={role} className="border-border/50">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    {role === "owner" ? (
-                      <Lock className="h-5 w-5 text-primary" />
-                    ) : role === "admin" ? (
-                      <Shield className="h-5 w-5 text-amber-500" />
-                    ) : (
-                      <Users className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium capitalize">{role}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {role === "owner"
-                        ? "Full access"
-                        : role === "admin"
-                        ? "Manage resources"
-                        : role === "member"
-                        ? "Execute actions"
-                        : "View only"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Project selector */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Select
+              value={selectedProject?.id}
+              onValueChange={(id) => {
+                const project = projects.find(p => p.id === id);
+                setSelectedProject(project || null);
+              }}
+            >
+              <SelectTrigger className="w-[250px]">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge variant="outline" className="gap-1">
+              <Shield className="h-3 w-3" />
+              {actionTemplates.length} actions
+            </Badge>
+          </div>
         </div>
 
-        {/* Permissions matrix */}
-        {actions.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Shield className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium mb-2">No actions to configure</h3>
-              <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
-                Import an API and generate actions to configure permissions
-              </p>
-              <Button variant="outline" asChild>
-                <a href="/import">Import API</a>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Permission Matrix</CardTitle>
-              <CardDescription>
-                Configure which roles can execute each action
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Action</TableHead>
-                    {roles.map((role) => (
-                      <TableHead key={role} className="text-center capitalize">
-                        {role}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {actions.map((action) => (
-                    <TableRow key={action.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {action.method}
-                          </Badge>
-                          <span className="font-medium">{action.name}</span>
-                        </div>
-                      </TableCell>
-                      {roles.map((role) => (
-                        <TableCell key={role} className="text-center">
-                          <Checkbox
-                            checked={role === "owner" || role === "admin"}
-                            disabled={role === "owner"}
-                          />
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
+        {/* Two-layer permissions tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="agent" className="gap-2">
+              <Bot className="h-4 w-4" />
+              Agent Capabilities
+            </TabsTrigger>
+            <TabsTrigger value="user" className="gap-2">
+              <Users className="h-4 w-4" />
+              User Permissions
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-2">
+              <History className="h-4 w-4" />
+              Audit Logs
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="agent" className="mt-6">
+            <div className="space-y-4">
+              <Card className="bg-muted/30 border-dashed">
+                <CardContent className="py-4">
+                  <div className="flex items-start gap-3">
+                    <Bot className="h-5 w-5 text-primary mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Agent Capability Layer</p>
+                      <p className="text-sm text-muted-foreground">
+                        Control what the AI agent can do globally in this project. 
+                        Set policies like <Badge variant="secondary" className="mx-1">Allow</Badge>, 
+                        <Badge variant="secondary" className="mx-1">Deny</Badge>, 
+                        <Badge variant="secondary" className="mx-1">Require Confirmation</Badge>, or 
+                        <Badge variant="secondary" className="mx-1">Require Approval</Badge> for each action.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {selectedProject && (
+                <AgentCapabilitiesPanel
+                  projectId={selectedProject.id}
+                  actionTemplates={actionTemplates}
+                />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="user" className="mt-6">
+            <div className="space-y-4">
+              <Card className="bg-muted/30 border-dashed">
+                <CardContent className="py-4">
+                  <div className="flex items-start gap-3">
+                    <Users className="h-5 w-5 text-amber-500 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">User Permission Layer</p>
+                      <p className="text-sm text-muted-foreground">
+                        Configure role-based access control (RBAC) and attribute-based rules (ABAC). 
+                        Define which roles can perform which actions, with optional conditions like 
+                        <code className="mx-1 px-1 py-0.5 bg-muted rounded text-xs">region == user.region</code> or 
+                        <code className="mx-1 px-1 py-0.5 bg-muted rounded text-xs">amount &lt;= 10000</code>.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {selectedProject && (
+                <UserPermissionsPanel organizationId={selectedProject.organization_id} />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="logs" className="mt-6">
+            <div className="space-y-4">
+              <Card className="bg-muted/30 border-dashed">
+                <CardContent className="py-4">
+                  <div className="flex items-start gap-3">
+                    <History className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Permission Audit Trail</p>
+                      <p className="text-sm text-muted-foreground">
+                        Every permission evaluation is logged for compliance and debugging. 
+                        See which rules matched, whether confirmation or approval was required, and the final decision.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {selectedProject && (
+                <PermissionEvaluationLogs organizationId={selectedProject.organization_id} />
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

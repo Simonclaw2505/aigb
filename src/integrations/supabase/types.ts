@@ -148,6 +148,75 @@ export type Database = {
           },
         ]
       }
+      agent_capabilities: {
+        Row: {
+          action_name: string | null
+          action_template_id: string | null
+          allowed_environments:
+            | Database["public"]["Enums"]["environment_type"][]
+            | null
+          approval_roles: Database["public"]["Enums"]["app_role"][] | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          max_executions_per_day: number | null
+          max_executions_per_hour: number | null
+          policy: Database["public"]["Enums"]["agent_capability_policy"]
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_name?: string | null
+          action_template_id?: string | null
+          allowed_environments?:
+            | Database["public"]["Enums"]["environment_type"][]
+            | null
+          approval_roles?: Database["public"]["Enums"]["app_role"][] | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_executions_per_day?: number | null
+          max_executions_per_hour?: number | null
+          policy?: Database["public"]["Enums"]["agent_capability_policy"]
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_name?: string | null
+          action_template_id?: string | null
+          allowed_environments?:
+            | Database["public"]["Enums"]["environment_type"][]
+            | null
+          approval_roles?: Database["public"]["Enums"]["app_role"][] | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_executions_per_day?: number | null
+          max_executions_per_hour?: number | null
+          policy?: Database["public"]["Enums"]["agent_capability_policy"]
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_capabilities_action_template_id_fkey"
+            columns: ["action_template_id"]
+            isOneToOne: false
+            referencedRelation: "action_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_capabilities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_actions: {
         Row: {
           created_at: string
@@ -787,6 +856,85 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_evaluations: {
+        Row: {
+          action_template_id: string | null
+          agent_session_id: string | null
+          approval_status: Database["public"]["Enums"]["approval_status"] | null
+          evaluated_at: string
+          evaluation_details: Json | null
+          evaluation_result: Database["public"]["Enums"]["policy_effect"]
+          id: string
+          ip_address: unknown
+          matched_rules: string[] | null
+          organization_id: string
+          requested_action: string
+          requires_approval: boolean | null
+          requires_confirmation: boolean | null
+          resource_id: string | null
+          resource_type: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_template_id?: string | null
+          agent_session_id?: string | null
+          approval_status?:
+            | Database["public"]["Enums"]["approval_status"]
+            | null
+          evaluated_at?: string
+          evaluation_details?: Json | null
+          evaluation_result: Database["public"]["Enums"]["policy_effect"]
+          id?: string
+          ip_address?: unknown
+          matched_rules?: string[] | null
+          organization_id: string
+          requested_action: string
+          requires_approval?: boolean | null
+          requires_confirmation?: boolean | null
+          resource_id?: string | null
+          resource_type: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_template_id?: string | null
+          agent_session_id?: string | null
+          approval_status?:
+            | Database["public"]["Enums"]["approval_status"]
+            | null
+          evaluated_at?: string
+          evaluation_details?: Json | null
+          evaluation_result?: Database["public"]["Enums"]["policy_effect"]
+          id?: string
+          ip_address?: unknown
+          matched_rules?: string[] | null
+          organization_id?: string
+          requested_action?: string
+          requires_approval?: boolean | null
+          requires_confirmation?: boolean | null
+          resource_id?: string | null
+          resource_type?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_evaluations_action_template_id_fkey"
+            columns: ["action_template_id"]
+            isOneToOne: false
+            referencedRelation: "action_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "permission_evaluations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_policies: {
         Row: {
           allowed_actions: string[]
@@ -1017,6 +1165,71 @@ export type Database = {
           },
         ]
       }
+      user_permission_rules: {
+        Row: {
+          action: string
+          conditions: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          effect: Database["public"]["Enums"]["policy_effect"]
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          priority: number
+          resource_id: string | null
+          resource_type: string
+          subject_role: Database["public"]["Enums"]["app_role"] | null
+          subject_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effect?: Database["public"]["Enums"]["policy_effect"]
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          priority?: number
+          resource_id?: string | null
+          resource_type: string
+          subject_role?: Database["public"]["Enums"]["app_role"] | null
+          subject_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          conditions?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effect?: Database["public"]["Enums"]["policy_effect"]
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          priority?: number
+          resource_id?: string | null
+          resource_type?: string
+          subject_role?: Database["public"]["Enums"]["app_role"] | null
+          subject_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1048,6 +1261,23 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      evaluate_permission: {
+        Args: {
+          _action: string
+          _context?: Json
+          _organization_id: string
+          _resource_id: string
+          _resource_type: string
+          _user_id: string
+        }
+        Returns: {
+          allowed: boolean
+          denial_reason: string
+          matched_rule_ids: string[]
+          requires_approval: boolean
+          requires_confirmation: boolean
+        }[]
+      }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1074,6 +1304,11 @@ export type Database = {
         | "safe_write"
         | "risky_write"
         | "irreversible"
+      agent_capability_policy:
+        | "allow"
+        | "deny"
+        | "require_confirmation"
+        | "require_approval"
       api_source_type: "openapi" | "swagger" | "graphql" | "grpc" | "manual"
       app_role: "owner" | "admin" | "member" | "viewer"
       approval_status: "pending" | "approved" | "rejected" | "expired"
@@ -1228,6 +1463,12 @@ export const Constants = {
         "safe_write",
         "risky_write",
         "irreversible",
+      ],
+      agent_capability_policy: [
+        "allow",
+        "deny",
+        "require_confirmation",
+        "require_approval",
       ],
       api_source_type: ["openapi", "swagger", "graphql", "grpc", "manual"],
       app_role: ["owner", "admin", "member", "viewer"],
