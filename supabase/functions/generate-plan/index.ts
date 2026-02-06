@@ -185,6 +185,28 @@ Respond with a JSON object (no markdown, just JSON):
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("AI Gateway error:", errorText);
+      
+      // Handle specific error codes
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Insufficient credits", 
+            message: "Your Lovable AI credits have been exhausted. Please add more credits in Settings → Workspace → Usage." 
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Rate limited", 
+            message: "Too many requests. Please wait a moment and try again." 
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       throw new Error("Failed to generate plan from AI");
     }
 
