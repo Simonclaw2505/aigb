@@ -1,122 +1,91 @@
 
+# Correction : Export MCP échoue
 
-# Ajouter la gestion du statut des projets
+## Problèmes identifiés
 
-## Problème
+### 1. Erreur principale - UUID invalide
+**Ligne 308** de `src/hooks/useExport.ts` :
+```typescript
+included_actions: tools.map((t) => t.name),
+```
 
-Le bouton "⋯" sur chaque carte de projet est présent mais ne fait rien. Il n'existe aucun moyen de :
-- Passer un projet de "draft" à "active"
-- Archiver un projet
-- Modifier ou supprimer un projet
+Le code envoie les **noms** des actions ("delete_user", "add_pet") mais la colonne `included_actions` est de type `uuid[]` et attend des **IDs**.
+
+### 2. Projet automatiquement sélectionné
+Le sélecteur de projet ne s'affiche que s'il y a plus d'un projet (ligne 170 de Export.tsx). Comme tu n'as qu'un seul projet "active", il est auto-sélectionné sans afficher le sélecteur.
 
 ## Solution
 
-Ajouter un menu déroulant (DropdownMenu) au bouton "⋯" avec des actions de gestion du projet.
+### Fichier 1 : `src/hooks/useExport.ts`
 
-## Fichier à modifier
-
-### `src/pages/Projects.tsx`
-
-**1. Ajouter les imports nécessaires** :
+**Ligne 308** - Utiliser les IDs au lieu des noms :
 
 ```typescript
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Play, Pause, Archive, Pencil, Trash2 } from "lucide-react";
+// Avant
+included_actions: tools.map((t) => t.name),
+
+// Après - utiliser les IDs des action_templates
+included_actions: (actions || []).map((a) => a.id),
 ```
 
-**2. Ajouter une fonction pour changer le statut** :
+### Fichier 2 : `src/pages/Export.tsx`
+
+**Ligne 83** - Inclure aussi les projets "draft" :
 
 ```typescript
-const handleStatusChange = async (
-  projectId: string, 
-  newStatus: "draft" | "active" | "archived",
-  e: React.MouseEvent
-) => {
-  e.stopPropagation(); // Empêcher la sélection du projet
-  
-  try {
-    const { error } = await supabase
-      .from("projects")
-      .update({ status: newStatus })
-      .eq("id", projectId);
+// Avant
+.eq("status", "active")
 
-    if (error) throw error;
-
-    toast.success(`Projet ${newStatus === "active" ? "activé" : newStatus === "archived" ? "archivé" : "mis en brouillon"}`);
-    refetch();
-  } catch (error: any) {
-    toast.error(error.message || "Erreur lors de la mise à jour");
-  }
-};
+// Après
+.in("status", ["draft", "active"])
 ```
 
-**3. Remplacer le bouton MoreHorizontal par un DropdownMenu** :
+**Lignes 169-189** - Toujours afficher le projet sélectionné :
 
 ```typescript
-<DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <Button 
-      variant="ghost" 
-      size="icon" 
-      className="h-8 w-8 flex-shrink-0"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <MoreHorizontal className="h-4 w-4" />
-    </Button>
-  </DropdownMenuTrigger>
-  <DropdownMenuContent align="end">
-    {project.status === "draft" && (
-      <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "active", e)}>
-        <Play className="h-4 w-4 mr-2" />
-        Activer le projet
-      </DropdownMenuItem>
-    )}
-    {project.status === "active" && (
-      <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
-        <Pause className="h-4 w-4 mr-2" />
-        Repasser en brouillon
-      </DropdownMenuItem>
-    )}
-    {project.status !== "archived" && (
-      <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "archived", e)}>
-        <Archive className="h-4 w-4 mr-2" />
-        Archiver
-      </DropdownMenuItem>
-    )}
-    {project.status === "archived" && (
-      <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
-        <Play className="h-4 w-4 mr-2" />
-        Restaurer
-      </DropdownMenuItem>
-    )}
-    <DropdownMenuSeparator />
-    <DropdownMenuItem className="text-destructive">
-      <Trash2 className="h-4 w-4 mr-2" />
-      Supprimer
-    </DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
+{/* Project info - always show current project */}
+{projects.length > 0 && (
+  <Card>
+    <CardHeader className="pb-3">
+      <CardTitle className="text-lg">Project</CardTitle>
+    </CardHeader>
+    <CardContent>
+      {projects.length > 1 ? (
+        <select
+          className="w-full p-2 border rounded-md bg-background"
+          value={selectedProject || ""}
+          onChange={(e) => setSelectedProject(e.target.value)}
+        >
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{projects[0].name}</span>
+          <Badge variant="secondary">{selectedProject ? "selected" : ""}</Badge>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+)}
 ```
 
-## Résumé des actions disponibles
+## Résumé des corrections
 
-| Statut actuel | Actions disponibles |
-|---------------|---------------------|
-| draft | Activer, Archiver, Supprimer |
-| active | Repasser en brouillon, Archiver, Supprimer |
-| archived | Restaurer, Supprimer |
+| Problème | Cause | Correction |
+|----------|-------|------------|
+| Export échoue avec erreur UUID | `included_actions` reçoit des noms au lieu d'IDs | Utiliser `actions.map(a => a.id)` |
+| Projet auto-sélectionné invisible | Sélecteur masqué si un seul projet | Toujours afficher le projet actif |
+| Projets draft exclus | Filtre `.eq("status", "active")` | Utiliser `.in("status", ["draft", "active"])` |
 
 ## Comportement après correction
 
-1. Tu cliques sur "⋯" d'un projet draft
-2. Menu apparaît avec "Activer le projet"
-3. Tu cliques → statut passe à "active"
-4. Le badge devient vert "active"
-5. Tu peux maintenant exporter ce projet
-
+1. Tu arrives sur /export
+2. Tu vois ton projet "petstore" affiché
+3. Tu cliques "Generate New Version"
+4. L'export est créé avec les bons UUIDs d'actions
+5. Tu peux télécharger le fichier JSON/YAML
