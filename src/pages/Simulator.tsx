@@ -238,7 +238,24 @@ export default function Simulator() {
   const getStepsNeedingApproval = (): number[] => {
     if (!dryRunResult) return [];
     return dryRunResult.results
-      .filter((r) => r.permission_check?.requires_approval && !getApprovalForStep(r.step_number)?.status?.includes("approved"))
+      .filter((r) => {
+        if (!r.permission_check?.requires_approval) return false;
+        const approval = getApprovalForStep(r.step_number);
+        // Only pending or missing approvals block execution
+        // "approved" and "rejected" are terminal states
+        return !approval || approval.status === "pending";
+      })
+      .map((r) => r.step_number);
+  };
+
+  // Get steps that were rejected and should be skipped during execution
+  const getSkippedSteps = (): number[] => {
+    if (!dryRunResult) return [];
+    return dryRunResult.results
+      .filter((r) => {
+        const approval = getApprovalForStep(r.step_number);
+        return approval?.status === "rejected";
+      })
       .map((r) => r.step_number);
   };
 
@@ -459,6 +476,7 @@ export default function Simulator() {
             steps: plan.steps,
             confirmed_steps: Array.from(confirmedSteps),
             security_pin: securityPin,
+            skipped_steps: getSkippedSteps(),
           }),
         }
       );
