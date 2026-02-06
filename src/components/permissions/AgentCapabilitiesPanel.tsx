@@ -191,18 +191,20 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
                   <div className="space-y-2">
                     <Label>Action</Label>
                     <Select
-                      value={formData.action_template_id}
+                      value={formData.action_template_id || undefined}
                       onValueChange={(v) => setFormData(prev => ({ ...prev, action_template_id: v }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select an action" />
                       </SelectTrigger>
                       <SelectContent>
-                        {unconfiguredActions.map((action) => (
-                          <SelectItem key={action.id} value={action.id}>
-                            {action.name}
-                          </SelectItem>
-                        ))}
+                        {unconfiguredActions
+                          .filter((action) => action.id && action.id.trim() !== "")
+                          .map((action) => (
+                            <SelectItem key={action.id} value={action.id}>
+                              {action.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
