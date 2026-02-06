@@ -196,14 +196,14 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
                   <div className="space-y-2">
                     <Label>Subject Role</Label>
                     <Select
-                      value={formData.subject_role}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, subject_role: v as AppRole }))}
+                      value={formData.subject_role || "all"}
+                      onValueChange={(v) => setFormData(prev => ({ ...prev, subject_role: v === "all" ? "" : v as AppRole }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="All roles" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Roles</SelectItem>
+                        <SelectItem value="all">All Roles</SelectItem>
                         {allRoles.map((role) => (
                           <SelectItem key={role} value={role} className="capitalize">
                             {role}
