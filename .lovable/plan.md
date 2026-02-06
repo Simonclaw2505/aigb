@@ -1,86 +1,51 @@
 
-# Plan : Corriger l'erreur RLS et implémenter le flux d'onboarding
+# Correction : Permettre la création d'actions
 
 ## Problème identifié
-L'import échoue car :
-1. **Aucune organisation** n'existe pour l'utilisateur connecté
-2. **Aucun projet** n'existe dans la base de données
-3. Le code utilise un `project_id` fictif (`00000000-0000-0000-0000-000000000000`) qui n'existe pas
-4. Les politiques de sécurité (RLS) vérifient que l'utilisateur appartient à l'organisation du projet
 
-## Solution proposée
+La page Actions ne fonctionne pas car elle utilise un **ID de projet temporaire fictif** (`00000000-0000-0000-0000-000000000000`) qui n'existe pas dans la base de données.
 
-### Étape 1 : Créer un hook de gestion du projet actif
-Créer `src/hooks/useCurrentProject.ts` qui :
-- Récupère les projets de l'utilisateur
-- Gère la sélection du projet actif
-- Crée automatiquement une organisation et un projet par défaut si l'utilisateur n'en a pas
+La politique de sécurité (RLS) de la table `action_templates` vérifie que l'utilisateur a un rôle valide dans l'organisation du projet. Comme le projet fictif n'existe pas, cette vérification échoue systématiquement.
 
-### Étape 2 : Créer un composant d'onboarding
-Créer `src/components/onboarding/ProjectSetup.tsx` qui :
-- Détecte si l'utilisateur n'a pas d'organisation/projet
-- Propose un formulaire simple pour créer son premier projet
-- Crée l'organisation et le projet en une seule action
+## Solution
 
-### Étape 3 : Mettre à jour la page Import
-Modifier `src/pages/Import.tsx` pour :
-- Utiliser le vrai `project_id` depuis le hook
-- Afficher l'onboarding si aucun projet n'existe
-- Bloquer l'import tant que l'utilisateur n'a pas de projet
+Utiliser le vrai projet de l'utilisateur (`currentProject.id`) au lieu de l'ID fictif.
 
-### Étape 4 : Mettre à jour la page Projects
-Modifier `src/pages/Projects.tsx` pour :
-- Récupérer les vrais projets depuis la base
-- Implémenter la création de projet avec création d'organisation si nécessaire
+## Fichiers à modifier
 
----
+| Fichier | Modification |
+|---------|--------------|
+| `src/pages/Actions.tsx` | Intégrer le hook `useCurrentProject` et remplacer toutes les utilisations de `TEMP_PROJECT_ID` par `currentProject.id` |
 
 ## Détails techniques
 
-### Nouveau hook : useCurrentProject
-```text
-src/hooks/useCurrentProject.ts
-├── Récupère l'organisation de l'utilisateur
-├── Récupère les projets de l'organisation
-├── Gère le projet actif (localStorage + state)
-├── Fonction createDefaultProject() :
-│   ├── Crée une organisation si absente
-│   ├── Ajoute l'utilisateur comme owner
-│   └── Crée un projet "Mon Premier Projet"
-└── Retourne { currentProject, projects, isLoading, createDefaultProject }
+### 1. Importer et utiliser le hook
+
+```typescript
+import { useCurrentProject } from "@/hooks/useCurrentProject";
+
+export default function Actions() {
+  const { currentProject, isLoading: projectLoading, needsOnboarding } = useCurrentProject();
+  // ...
+}
 ```
 
-### Flux de données
-```text
-Utilisateur connecté
-       │
-       ▼
-┌──────────────────┐
-│ useCurrentProject│
-└────────┬─────────┘
-         │
-    A-t-il une org?
-         │
-    ┌────┴────┐
-    Non      Oui
-    │         │
-    ▼         ▼
-Afficher   A-t-il un projet?
-Onboarding    │
-    │    ┌────┴────┐
-    │    Non      Oui
-    │    │         │
-    │    ▼         ▼
-    └──► Afficher  Afficher
-         Onboarding Import normal
-```
+### 2. Remplacer les 4 occurrences de TEMP_PROJECT_ID
 
-### Modifications de fichiers
+Toutes les insertions dans `action_templates` utiliseront `currentProject.id` :
 
-| Fichier | Action |
-|---------|--------|
-| `src/hooks/useCurrentProject.ts` | Créer (nouveau) |
-| `src/components/onboarding/ProjectSetup.tsx` | Créer (nouveau) |
-| `src/pages/Import.tsx` | Modifier (utiliser vrai project_id) |
-| `src/pages/Projects.tsx` | Modifier (implémenter CRUD) |
-| `src/pages/Dashboard.tsx` | Modifier (afficher onboarding si pas de projet) |
+- Ligne 276 : `handleSaveAction` (création/mise à jour)
+- Ligne 373 : `handleDuplicateAction` (duplication)  
+- Ligne 422 : `handleAutoGenerateAll` (génération automatique)
+
+### 3. Gérer le cas où aucun projet n'existe
+
+Si l'utilisateur n'a pas encore de projet, afficher un message l'invitant à en créer un depuis la page Projects ou l'onboarding.
+
+### 4. Supprimer la constante inutilisée
+
+Retirer `const TEMP_PROJECT_ID = "00000000-0000-0000-0000-000000000000";`
+
+## Résultat attendu
+
+Après cette modification, les actions seront créées avec le vrai ID de projet de l'utilisateur. La politique RLS pourra alors vérifier correctement que l'utilisateur a les permissions nécessaires, et la création fonctionnera.
