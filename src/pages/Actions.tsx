@@ -29,6 +29,7 @@ import { EndpointToActionCard } from "@/components/actions/EndpointToActionCard"
 import { ActionCard } from "@/components/actions/ActionCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentProject } from "@/hooks/useCurrentProject";
 import {
   generateActionSuggestion,
   suggestRiskLevel,
@@ -42,10 +43,9 @@ import {
   Plus,
   Loader2,
   FolderOpen,
+  AlertCircle,
 } from "lucide-react";
-
-// Temporary project ID
-const TEMP_PROJECT_ID = "00000000-0000-0000-0000-000000000000";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Endpoint {
   id: string;
@@ -82,6 +82,7 @@ interface ActionTemplate {
 }
 
 export default function Actions() {
+  const { currentProject, isLoading: projectLoading, needsOnboarding } = useCurrentProject();
   const [searchQuery, setSearchQuery] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("endpoints");
@@ -99,8 +100,10 @@ export default function Actions() {
 
   // Fetch endpoints and actions
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (currentProject) {
+      fetchData();
+    }
+  }, [currentProject]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -273,7 +276,7 @@ export default function Actions() {
     try {
       // Serialize to JSON for Supabase
       const actionData = {
-        project_id: TEMP_PROJECT_ID,
+        project_id: currentProject!.id,
         endpoint_id: selectedEndpoint?.id || editingAction?.endpoint_id,
         name: formData.name,
         description: formData.description,
@@ -370,7 +373,7 @@ export default function Actions() {
   const handleDuplicateAction = async (action: ActionTemplate) => {
     try {
       const duplicateData = {
-        project_id: TEMP_PROJECT_ID,
+        project_id: currentProject!.id,
         endpoint_id: action.endpoint_id,
         name: `${action.name}_copy`,
         description: action.description,
@@ -419,7 +422,7 @@ export default function Actions() {
       const actionsToCreate = endpointsWithoutActions.map((ep) => {
         const formData = createFormDataFromEndpoint(ep);
         return {
-          project_id: TEMP_PROJECT_ID,
+          project_id: currentProject!.id,
           endpoint_id: ep.id,
           name: formData.name,
           description: formData.description,
@@ -463,6 +466,22 @@ export default function Actions() {
   const endpointsWithoutActions = endpoints.filter(
     (ep) => !getActionForEndpoint(ep.id)
   );
+
+  // Show message if no project
+  if (!projectLoading && (needsOnboarding || !currentProject)) {
+    return (
+      <DashboardLayout title="Actions" description="Convert endpoints into agent-friendly MCP actions">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Projet requis</AlertTitle>
+          <AlertDescription>
+            Vous devez d'abord créer un projet pour gérer vos actions.
+            Rendez-vous sur la page <a href="/projects" className="underline font-medium">Projets</a> pour commencer.
+          </AlertDescription>
+        </Alert>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Actions" description="Convert endpoints into agent-friendly MCP actions">
