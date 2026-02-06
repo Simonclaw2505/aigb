@@ -28,6 +28,7 @@ interface ExecuteRequest {
   approval_id?: string; // If approval was required and granted
   confirmed_steps?: number[]; // Steps explicitly confirmed by user
   security_pin?: string; // PIN for security verification
+  skipped_steps?: number[]; // Steps rejected during approval workflow
 }
 
 interface StepResult {
@@ -79,7 +80,7 @@ serve(async (req) => {
     }
 
     const body: ExecuteRequest = await req.json();
-    const { session_id, project_id, mode, steps, approval_id, confirmed_steps, security_pin } = body;
+    const { session_id, project_id, mode, steps, approval_id, confirmed_steps, security_pin, skipped_steps } = body;
 
     // Validate required fields
     if (!session_id || !project_id || !mode || !steps) {
@@ -157,6 +158,24 @@ serve(async (req) => {
     let anyRequiresApproval = false;
 
     for (const step of steps) {
+      // Skip steps that were rejected during approval workflow
+      if (skipped_steps?.includes(step.step_number)) {
+        results.push({
+          step_number: step.step_number,
+          action_name: step.action_name,
+          status: "skipped",
+          result: { reason: "Rejected during approval workflow" },
+          permission_check: {
+            allowed: false,
+            requires_confirmation: false,
+            requires_approval: true,
+            requires_security_pin: false,
+            denial_reason: "Action rejected by administrator",
+          },
+        });
+        continue;
+      }
+
       const action = actionMap.get(step.action_template_id);
       const capability = capabilityMap.get(step.action_template_id);
 
