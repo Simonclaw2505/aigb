@@ -305,7 +305,7 @@ export function useExport({ projectId }: UseExportOptions) {
             exported_by: user.id,
             file_size_bytes: new Blob([manifestString]).size,
             checksum,
-            included_actions: tools.map((t) => t.name),
+            included_actions: (actions || []).map((a) => a.id),
           })
           .select()
           .single();

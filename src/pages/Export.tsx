@@ -80,7 +80,7 @@ export default function Export() {
           .from("projects")
           .select("id, name")
           .eq("organization_id", organizationId)
-          .eq("status", "active")
+          .in("status", ["draft", "active"])
           .order("name");
 
         if (!error && data) {
@@ -166,24 +166,32 @@ export default function Export() {
       description="Generate versioned MCP packages for your AI agents"
     >
       <div className="space-y-6">
-        {/* Project selector */}
-        {projects.length > 1 && (
+        {/* Project selector - always show current project */}
+        {projects.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Select Project</CardTitle>
+              <CardTitle className="text-lg">Project</CardTitle>
             </CardHeader>
             <CardContent>
-              <select
-                className="w-full p-2 border rounded-md bg-background"
-                value={selectedProject || ""}
-                onChange={(e) => setSelectedProject(e.target.value)}
-              >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              {projects.length > 1 ? (
+                <select
+                  className="w-full p-2 border rounded-md bg-background"
+                  value={selectedProject || ""}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{projects[0].name}</span>
+                  <Badge variant="secondary">selected</Badge>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
