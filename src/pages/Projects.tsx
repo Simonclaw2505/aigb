@@ -18,6 +18,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ProjectSetup } from "@/components/onboarding/ProjectSetup";
@@ -25,7 +32,7 @@ import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus, Search, FolderOpen, MoreHorizontal, Calendar, Loader2, Check } from "lucide-react";
+import { Plus, Search, FolderOpen, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2 } from "lucide-react";
 
 // Status badge variants
 const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -58,6 +65,30 @@ export default function Projects() {
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.description || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleStatusChange = async (
+    projectId: string,
+    newStatus: "draft" | "active" | "archived",
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({ status: newStatus })
+        .eq("id", projectId);
+
+      if (error) throw error;
+
+      toast.success(
+        `Projet ${newStatus === "active" ? "activé" : newStatus === "archived" ? "archivé" : "mis en brouillon"}`
+      );
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la mise à jour");
+    }
+  };
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim() || !organization || !user) return;
@@ -228,9 +259,49 @@ export default function Projects() {
                       {project.description || "No description"}
                     </CardDescription>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {project.status === "draft" && (
+                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "active", e)}>
+                          <Play className="h-4 w-4 mr-2" />
+                          Activer le projet
+                        </DropdownMenuItem>
+                      )}
+                      {project.status === "active" && (
+                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
+                          <Pause className="h-4 w-4 mr-2" />
+                          Repasser en brouillon
+                        </DropdownMenuItem>
+                      )}
+                      {project.status !== "archived" && (
+                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "archived", e)}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archiver
+                        </DropdownMenuItem>
+                      )}
+                      {project.status === "archived" && (
+                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
+                          <Play className="h-4 w-4 mr-2" />
+                          Restaurer
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Supprimer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
