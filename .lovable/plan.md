@@ -1,217 +1,124 @@
 
+# Correction : Traiter "rejected" comme état terminal
 
-# Plan : Simulator interactif avec confirmation, Security PIN et approbations
+## Problème
 
-## Objectif
-
-Transformer le Simulator pour qu'il simule un vrai workflow d'agent IA où l'utilisateur peut :
-1. **Confirmer** une action (quand policy = `require_confirmation`)
-2. **Entrer son code PIN** (quand `requires_security_pin = true`)
-3. **Demander une approbation** (quand policy = `require_approval`)
-4. **Valider/Rejeter** les demandes d'approbation en attente
-
-Actuellement, le Simulator affiche "Execution Blocked" et "Needs Approval" mais sans moyen d'interagir.
-
----
-
-## Ce qui va changer
-
-### 1. Nouveau flux dans le Simulator
-
-```text
-[Plan genere] 
-     |
-     v
-[Dry-run Preview]
-     |
-     +-- Action avec "Needs Confirmation" ?
-     |        |
-     |        v
-     |   [Dialog: "Confirmer cette action ?"]
-     |        |-- Oui --> Continue
-     |        |-- Non --> Annuler
-     |
-     +-- Action avec "Needs Security PIN" ?
-     |        |
-     |        v
-     |   [Dialog: SecurityPinDialog]
-     |        |-- PIN valide --> Continue
-     |        |-- PIN invalide --> Bloquer
-     |
-     +-- Action avec "Needs Approval" ?
-              |
-              v
-         [Bouton: "Demander Approbation"]
-              |
-              v
-         [Creation approval_request en BDD]
-              |
-              v
-         [Message: "En attente d'approbation par un admin"]
+**Ligne 241** de `src/pages/Simulator.tsx` :
+```typescript
+!getApprovalForStep(r.step_number)?.status?.includes("approved")
 ```
 
-### 2. Nouveaux composants UI
+Cette condition retourne `true` pour "rejected" car "rejected" ne contient pas "approved", donc les étapes rejetées bloquent l'exécution.
 
-| Composant | Description |
-|-----------|-------------|
-| `ConfirmActionDialog.tsx` | Dialog simple "Voulez-vous confirmer cette action ?" |
-| `ApprovalRequestPanel.tsx` | Panneau affichant les demandes en attente + boutons Approuver/Rejeter |
-| Modification `Simulator.tsx` | Integration des 3 dialogs + logique de gestion des etats |
+## Solution
 
-### 3. Modifications backend (execute-plan)
+Modifier la logique pour ne bloquer que sur les étapes `pending` ou sans demande.
 
-La fonction edge doit :
-- Accepter un nouveau parametre `confirmations: string[]` (liste des step_number confirmes)
-- Accepter `security_pin_verified: boolean` 
-- Verifier cote serveur que les confirmations/PIN sont valides avant execution
+## Fichiers à modifier
 
-### 4. Structure de donnees des approbations
+### 1. `src/pages/Simulator.tsx`
 
-Table `approval_requests` (existe deja) :
-```
-id, organization_id, policy_id, resource_type, resource_id,
-action_type, requested_by, status (pending/approved/rejected),
-approvals: [{user_id, approved_at}], rejections: [...]
-```
-
----
-
-## Fichiers a creer/modifier
-
-| Fichier | Action |
-|---------|--------|
-| `src/components/simulator/ConfirmActionDialog.tsx` | Nouveau - Dialog de confirmation simple |
-| `src/components/simulator/ApprovalRequestPanel.tsx` | Nouveau - Gestion des demandes d'approbation |
-| `src/pages/Simulator.tsx` | Modifier - Integration des dialogs et nouveau flux |
-| `src/hooks/useApprovalRequests.ts` | Nouveau - Hook pour gerer les approval_requests |
-| `supabase/functions/execute-plan/index.ts` | Modifier - Support confirmations + PIN verification |
-
----
-
-## Details d'implementation
-
-### UI du Simulator modifiee
-
-Quand une action necessite une confirmation :
-```
-┌─────────────────────────────────────────────────────────┐
-│  Step 1: add_pet                                        │
-│  [Needs Confirmation]                                   │
-│                                                         │
-│  Cette action va creer un nouvel animal dans la base.  │
-│                                                         │
-│  [Confirmer l'action]  [Annuler]                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-Quand une action necessite un PIN :
-```
-┌─────────────────────────────────────────────────────────┐
-│  Step 2: delete_all_pets                                │
-│  [Needs Security PIN] [High Risk]                       │
-│                                                         │
-│  Cette action est critique et necessite votre code PIN │
-│                                                         │
-│  [Entrer mon PIN]                                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-Quand une action necessite une approbation :
-```
-┌─────────────────────────────────────────────────────────┐
-│  Step 3: batch_update_prices                            │
-│  [Pending Approval]                                     │
-│                                                         │
-│  Cette action necessite l'approbation d'un admin.      │
-│                                                         │
-│  [Demander l'approbation]                              │
-│                                                         │
-│  --- ou si deja demandee ---                            │
-│                                                         │
-│  En attente d'approbation (demandee il y a 5 min)       │
-│  [Approuver] [Rejeter] (visible si admin)              │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Nouveau state dans Simulator.tsx
+**Ligne 238-243** - Modifier `getStepsNeedingApproval()` :
 
 ```typescript
-interface SimulatorState {
-  // Existant
-  plan: ExecutionPlan | null;
-  dryRunResult: ExecutionResult | null;
-  
-  // Nouveau
-  confirmedSteps: Set<number>;      // Steps confirmes par l'utilisateur
-  pinVerified: boolean;             // PIN verifie pour cette session
-  approvalRequestId: string | null; // ID de la demande d'approbation creee
-  approvalStatus: "none" | "pending" | "approved" | "rejected";
-}
+const getStepsNeedingApproval = (): number[] => {
+  if (!dryRunResult) return [];
+  return dryRunResult.results
+    .filter((r) => {
+      if (!r.permission_check?.requires_approval) return false;
+      const approval = getApprovalForStep(r.step_number);
+      // Seules les étapes pending ou sans demande bloquent
+      // "approved" et "rejected" sont des états terminaux
+      return !approval || approval.status === "pending";
+    })
+    .map((r) => r.step_number);
+};
 ```
 
-### Logique cote serveur
+**Ajouter une nouvelle fonction** `getSkippedSteps()` :
 
 ```typescript
-// execute-plan/index.ts - nouveaux parametres
+const getSkippedSteps = (): number[] => {
+  if (!dryRunResult) return [];
+  return dryRunResult.results
+    .filter((r) => {
+      const approval = getApprovalForStep(r.step_number);
+      return approval?.status === "rejected";
+    })
+    .map((r) => r.step_number);
+};
+```
+
+**Modifier `handleExecute()`** pour envoyer les étapes à ignorer au backend :
+
+```typescript
+body: JSON.stringify({
+  session_id: plan.session_id,
+  project_id: selectedProjectId,
+  mode: "execute",
+  steps: plan.steps,
+  confirmed_steps: Array.from(confirmedSteps),
+  security_pin: securityPin,
+  skipped_steps: getSkippedSteps(), // Nouveau
+})
+```
+
+### 2. `supabase/functions/execute-plan/index.ts`
+
+**Ajouter `skipped_steps` à l'interface** :
+
+```typescript
 interface ExecuteRequest {
-  // Existant
   session_id: string;
   project_id: string;
   mode: "dry_run" | "execute";
   steps: PlanStep[];
   approval_id?: string;
-  
-  // Nouveau
-  confirmed_steps?: number[];      // Steps confirmes explicitement
-  security_pin?: string;           // PIN pour verification serveur
+  confirmed_steps?: number[];
+  security_pin?: string;
+  skipped_steps?: number[]; // Nouveau
 }
 ```
 
-Le serveur verifiera :
-1. Si `require_confirmation` : le step doit etre dans `confirmed_steps`
-2. Si `requires_security_pin` : verifier le PIN via la fonction DB
-3. Si `require_approval` : verifier que `approval_id` existe et est "approved"
-
----
-
-## Section technique : Verification du PIN cote serveur
+**Gérer les étapes skippées dans la boucle** (avant le traitement normal) :
 
 ```typescript
-// Dans execute-plan/index.ts
-if (capability?.requires_security_pin) {
-  if (!body.security_pin) {
-    return { 
-      status: "failed", 
-      error: "Security PIN required",
-      requires_pin: true 
-    };
+for (const step of steps) {
+  // Skip les étapes rejetées
+  if (skipped_steps?.includes(step.step_number)) {
+    results.push({
+      step_number: step.step_number,
+      action_name: step.action_name,
+      status: "skipped",
+      result: { reason: "Rejected during approval workflow" },
+      permission_check: {
+        allowed: false,
+        requires_confirmation: false,
+        requires_approval: true,
+        requires_security_pin: false,
+        denial_reason: "Action rejected by administrator",
+      },
+    });
+    continue; // Passer à l'étape suivante
   }
   
-  // Verifier via la fonction DB
-  const { data: isValid } = await supabase.rpc("verify_security_pin", {
-    pin: body.security_pin,
-    stored_hash: userPinHash
-  });
-  
-  if (!isValid) {
-    return { status: "failed", error: "Invalid security PIN" };
-  }
+  // ... reste du traitement existant
 }
 ```
 
----
+## Résumé
 
-## Sequence complete
+| Changement | Effet |
+|------------|-------|
+| Fix `getStepsNeedingApproval()` | "rejected" ne bloque plus le bouton Execute |
+| Ajouter `getSkippedSteps()` | Identifie les étapes à ignorer |
+| Envoyer `skipped_steps` au backend | Le serveur sait quelles étapes ignorer |
+| Gérer le skip côté serveur | Les étapes rejetées retournent status "skipped" |
 
-```text
-1. Utilisateur tape "Ajoute un animal Fido"
-2. generate-plan retourne le plan avec add_pet
-3. Simulator appelle execute-plan mode=dry_run
-4. Resultat: requires_confirmation=true pour step 1
-5. UI affiche bouton "Confirmer"
-6. Utilisateur clique "Confirmer"
-7. State: confirmedSteps.add(1)
-8. Simulator rappelle execute-plan mode=execute + confirmed_steps=[1]
-9. Backend verifie confirmation, execute, retourne succes
-```
+## Comportement après correction
 
+1. Tu approuves 5 actions, tu en rejettes 3
+2. Toutes ont un statut terminal (approved ou rejected)
+3. `getStepsNeedingApproval()` retourne `[]`
+4. Bouton **Execute** devient actif
+5. Exécution : 5 succès + 3 skipped
