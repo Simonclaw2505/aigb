@@ -133,6 +133,7 @@ export default function Simulator() {
     rejectRequest,
     getApprovalForStep,
     areAllApprovalsGranted,
+    getApprovedSteps,
     resetApprovals,
     loading: approvalsLoading,
   } = useApprovalRequests({
@@ -477,6 +478,7 @@ export default function Simulator() {
             confirmed_steps: Array.from(confirmedSteps),
             security_pin: securityPin,
             skipped_steps: getSkippedSteps(),
+            approved_steps: getApprovedSteps(),
           }),
         }
       );

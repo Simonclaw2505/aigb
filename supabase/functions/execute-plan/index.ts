@@ -25,10 +25,11 @@ interface ExecuteRequest {
   project_id: string;
   mode: "dry_run" | "execute";
   steps: PlanStep[];
-  approval_id?: string; // If approval was required and granted
+  approval_id?: string; // If approval was required and granted (legacy)
   confirmed_steps?: number[]; // Steps explicitly confirmed by user
   security_pin?: string; // PIN for security verification
   skipped_steps?: number[]; // Steps rejected during approval workflow
+  approved_steps?: number[]; // Steps approved during approval workflow
 }
 
 interface StepResult {
@@ -80,7 +81,7 @@ serve(async (req) => {
     }
 
     const body: ExecuteRequest = await req.json();
-    const { session_id, project_id, mode, steps, approval_id, confirmed_steps, security_pin, skipped_steps } = body;
+    const { session_id, project_id, mode, steps, approval_id, confirmed_steps, security_pin, skipped_steps, approved_steps } = body;
 
     // Validate required fields
     if (!session_id || !project_id || !mode || !steps) {
@@ -221,10 +222,13 @@ serve(async (req) => {
         } else if (capability.policy === "require_approval") {
           requiresApproval = true;
           
-          // Check if approval was provided
-          if (mode === "execute" && !approval_id) {
-            allowed = false;
-            denialReason = "Action requires approval before execution";
+          // Check if approval was provided for this specific step
+          if (mode === "execute") {
+            const stepApproved = approved_steps?.includes(step.step_number) || approval_id;
+            if (!stepApproved) {
+              allowed = false;
+              denialReason = "Action requires approval before execution";
+            }
           }
         }
 

@@ -259,6 +259,17 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
     });
   }, [approvalRequests]);
 
+  // Get all approved step numbers
+  const getApprovedSteps = useCallback((): number[] => {
+    const approved: number[] = [];
+    approvalRequests.forEach((request, key) => {
+      if (request.status === "approved") {
+        approved.push(parseInt(key, 10));
+      }
+    });
+    return approved;
+  }, [approvalRequests]);
+
   // Reset all approval requests
   const resetApprovals = useCallback(() => {
     setApprovalRequests(new Map());
@@ -272,6 +283,7 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
     rejectRequest,
     getApprovalForStep,
     areAllApprovalsGranted,
+    getApprovedSteps,
     resetApprovals,
   };
 }
