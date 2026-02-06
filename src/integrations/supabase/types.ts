@@ -1464,8 +1464,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      hash_security_pin: { Args: { pin: string }; Returns: string }
       is_org_member: {
         Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
+      verify_security_pin: {
+        Args: { pin: string; stored_hash: string }
         Returns: boolean
       }
     }
