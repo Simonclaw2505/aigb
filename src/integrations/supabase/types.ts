@@ -1428,6 +1428,10 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
+      create_organization_with_membership: {
+        Args: { org_name: string; org_slug: string }
+        Returns: string
+      }
       evaluate_permission: {
         Args: {
           _action: string
