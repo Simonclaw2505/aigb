@@ -14,7 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Bot, Shield, AlertTriangle, Ban, CheckCircle, Clock, Plus, Trash2 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
+import { Bot, Shield, AlertTriangle, Ban, CheckCircle, Clock, Plus, Trash2, Lock, FlaskConical } from "lucide-react";
 import { useAgentCapabilities, AgentCapability } from "@/hooks/usePermissions";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -57,6 +59,12 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
     max_executions_per_day: "",
     allowed_environments: ["development", "staging", "production"] as EnvironmentType[],
     is_active: true,
+    // New security fields
+    free_executions: "",
+    max_batch_size: "",
+    required_approvals: 1,
+    requires_security_pin: false,
+    require_sandbox_first: false,
   });
 
   const resetForm = () => {
@@ -68,12 +76,25 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
       max_executions_per_day: "",
       allowed_environments: ["development", "staging", "production"],
       is_active: true,
+      free_executions: "",
+      max_batch_size: "",
+      required_approvals: 1,
+      requires_security_pin: false,
+      require_sandbox_first: false,
     });
     setEditingCapability(null);
   };
 
   const handleEdit = (cap: AgentCapability) => {
     setEditingCapability(cap);
+    // Access extended fields with type assertion
+    const extendedCap = cap as AgentCapability & {
+      free_executions?: number | null;
+      max_batch_size?: number | null;
+      required_approvals?: number;
+      requires_security_pin?: boolean;
+      require_sandbox_first?: boolean;
+    };
     setFormData({
       action_template_id: cap.action_template_id || "",
       policy: cap.policy,
@@ -82,33 +103,41 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
       max_executions_per_day: cap.max_executions_per_day?.toString() || "",
       allowed_environments: cap.allowed_environments || ["development", "staging", "production"],
       is_active: cap.is_active,
+      free_executions: extendedCap.free_executions?.toString() || "",
+      max_batch_size: extendedCap.max_batch_size?.toString() || "",
+      required_approvals: extendedCap.required_approvals || 1,
+      requires_security_pin: extendedCap.requires_security_pin || false,
+      require_sandbox_first: extendedCap.require_sandbox_first || false,
     });
     setIsDialogOpen(true);
   };
 
   const handleSave = async () => {
     try {
+      const updateData = {
+        policy: formData.policy,
+        approval_roles: formData.approval_roles,
+        max_executions_per_hour: formData.max_executions_per_hour ? parseInt(formData.max_executions_per_hour) : null,
+        max_executions_per_day: formData.max_executions_per_day ? parseInt(formData.max_executions_per_day) : null,
+        allowed_environments: formData.allowed_environments,
+        is_active: formData.is_active,
+        // New security fields - using type assertion for new columns
+        ...(formData.free_executions ? { free_executions: parseInt(formData.free_executions) } : {}),
+        ...(formData.max_batch_size ? { max_batch_size: parseInt(formData.max_batch_size) } : {}),
+        required_approvals: formData.required_approvals,
+        requires_security_pin: formData.requires_security_pin,
+        require_sandbox_first: formData.require_sandbox_first,
+      };
+
       if (editingCapability) {
-        await updateCapability(editingCapability.id, {
-          policy: formData.policy,
-          approval_roles: formData.approval_roles,
-          max_executions_per_hour: formData.max_executions_per_hour ? parseInt(formData.max_executions_per_hour) : null,
-          max_executions_per_day: formData.max_executions_per_day ? parseInt(formData.max_executions_per_day) : null,
-          allowed_environments: formData.allowed_environments,
-          is_active: formData.is_active,
-        });
+        await updateCapability(editingCapability.id, updateData as Partial<AgentCapability>);
       } else {
         await createCapability({
           project_id: projectId,
           action_template_id: formData.action_template_id || null,
           action_name: null,
-          policy: formData.policy,
-          approval_roles: formData.approval_roles,
-          max_executions_per_hour: formData.max_executions_per_hour ? parseInt(formData.max_executions_per_hour) : null,
-          max_executions_per_day: formData.max_executions_per_day ? parseInt(formData.max_executions_per_day) : null,
-          allowed_environments: formData.allowed_environments,
-          is_active: formData.is_active,
-        });
+          ...updateData,
+        } as Omit<AgentCapability, "id" | "created_at" | "updated_at" | "action_template">);
       }
       setIsDialogOpen(false);
       resetForm();
