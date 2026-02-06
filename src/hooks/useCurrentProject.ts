@@ -133,36 +133,31 @@ export function useCurrentProject(): UseCurrentProjectReturn {
       try {
         let orgId = organization?.id;
 
-        // Create organization if needed
+        // Create organization if needed using RPC function (bypasses RLS)
         if (!orgId) {
           const slug = (orgName || `org-${user.id.slice(0, 8)}`)
             .toLowerCase()
             .replace(/[^a-z0-9-]/g, "-")
             .replace(/-+/g, "-");
 
-          const { data: newOrg, error: orgError } = await supabase
-            .from("organizations")
-            .insert({
-              name: orgName || "Mon Organisation",
-              slug,
-            })
-            .select()
-            .single();
+          const { data: newOrgId, error: orgError } = await supabase
+            .rpc("create_organization_with_membership", {
+              org_name: orgName || "Mon Organisation",
+              org_slug: slug,
+            });
 
           if (orgError) throw orgError;
 
-          // Add user as owner of the organization
-          const { error: memberError } = await supabase
-            .from("organization_members")
-            .insert({
-              organization_id: newOrg.id,
-              user_id: user.id,
-              role: "owner",
-            });
+          // Fetch the created organization
+          const { data: newOrg, error: fetchError } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", newOrgId)
+            .single();
 
-          if (memberError) throw memberError;
+          if (fetchError) throw fetchError;
 
-          orgId = newOrg.id;
+          orgId = newOrgId;
           setOrganization(newOrg);
         }
 
