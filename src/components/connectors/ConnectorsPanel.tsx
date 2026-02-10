@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,11 +34,12 @@ interface ConnectorsPanelProps {
   organizationId: string;
 }
 
-export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
+export function ConnectorsPanel({ projectId, organizationId }: ConnectorsPanelProps) {
   const { connectors, loading, createConnector, updateConnector, deleteConnector } = useApiConnectors(projectId);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingConnector, setEditingConnector] = useState<ApiConnector | null>(null);
   const [activeTab, setActiveTab] = useState("basic");
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -46,6 +48,7 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
     auth_type: "api_key",
     auth_header_name: "Authorization",
     auth_prefix: "Bearer",
+    auth_credential: "", // The actual API key / token
     timeout_ms: 30000,
     max_retries: 3,
     backoff_ms: 1000,
@@ -63,6 +66,7 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
       auth_type: "api_key",
       auth_header_name: "Authorization",
       auth_prefix: "Bearer",
+      auth_credential: "",
       timeout_ms: 30000,
       max_retries: 3,
       backoff_ms: 1000,
@@ -85,6 +89,7 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
       auth_type: connector.auth_type,
       auth_header_name: (authConfig.header_name as string) || "Authorization",
       auth_prefix: (authConfig.prefix as string) || "Bearer",
+      auth_credential: "", // Never prefill credentials
       timeout_ms: connector.timeout_ms,
       max_retries: connector.retry_config.max_retries,
       backoff_ms: connector.retry_config.backoff_ms,
@@ -105,6 +110,37 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
     }
 
     try {
+      setSaving(true);
+      let credentialSecretId: string | null = editingConnector?.credential_secret_id || null;
+
+      // Create or update secret if credential provided
+      if (formData.auth_credential && formData.auth_type !== "none") {
+        if (credentialSecretId) {
+          // Update existing secret
+          await supabase
+            .from("secrets")
+            .update({ encrypted_value: formData.auth_credential })
+            .eq("id", credentialSecretId);
+        } else {
+          // Create new secret
+          const { data: newSecret, error: secretError } = await supabase
+            .from("secrets")
+            .insert({
+              organization_id: organizationId,
+              project_id: projectId,
+              name: `${formData.name}_credential`,
+              description: `API credential for ${formData.name} connector`,
+              encrypted_value: formData.auth_credential,
+              is_active: true,
+            })
+            .select("id")
+            .single();
+
+          if (secretError) throw secretError;
+          credentialSecretId = newSecret.id;
+        }
+      }
+
       const connectorData = {
         project_id: projectId,
         api_source_id: null,
@@ -116,7 +152,7 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
           header_name: formData.auth_header_name,
           prefix: formData.auth_prefix,
         },
-        credential_secret_id: null, // Will be set when secret is added
+        credential_secret_id: credentialSecretId,
         default_headers: parsedHeaders,
         timeout_ms: formData.timeout_ms,
         retry_config: {
@@ -138,6 +174,8 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
       resetForm();
     } catch {
       // Error handled in hook
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -272,13 +310,18 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
                         </div>
                       )}
 
-                      <Alert>
-                        <Key className="h-4 w-4" />
-                        <AlertDescription>
-                          API credentials are stored encrypted and never exposed to clients.
-                          Add credentials after creating the connector.
-                        </AlertDescription>
-                      </Alert>
+                      <div className="space-y-2">
+                        <Label>API Key / Token *</Label>
+                        <Input
+                          type="password"
+                          placeholder={editingConnector?.credential_secret_id ? "••••••••  (leave empty to keep current)" : "Enter your API key or token"}
+                          value={formData.auth_credential}
+                          onChange={(e) => setFormData(prev => ({ ...prev, auth_credential: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Stored securely server-side. Never exposed to clients.
+                        </p>
+                      </div>
                     </>
                   )}
                 </TabsContent>
@@ -342,8 +385,8 @@ export function ConnectorsPanel({ projectId }: ConnectorsPanelProps) {
                 <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={!formData.name || !formData.base_url}>
-                  {editingConnector ? "Update" : "Create"}
+                <Button onClick={handleSave} disabled={saving || !formData.name || !formData.base_url}>
+                  {saving ? "Saving..." : editingConnector ? "Update" : "Create"}
                 </Button>
               </DialogFooter>
             </DialogContent>
