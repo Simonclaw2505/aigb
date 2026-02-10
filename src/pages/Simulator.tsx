@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,16 +35,14 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentProject } from "@/hooks/useCurrentProject";
+import { ProjectBanner } from "@/components/layout/ProjectBanner";
 import { useApprovalRequests } from "@/hooks/useApprovalRequests";
 import { ConfirmActionDialog } from "@/components/simulator/ConfirmActionDialog";
 import { ApprovalRequestPanel } from "@/components/simulator/ApprovalRequestPanel";
 import { SecurityPinDialog } from "@/components/security/SecurityPinDialog";
 
-interface Project {
-  id: string;
-  name: string;
-  organization_id: string;
-}
+// Project interface removed - using useCurrentProject
 
 interface PlanStep {
   step_number: number;
@@ -101,17 +98,16 @@ type SimulatorPhase = "input" | "planning" | "preview" | "executing" | "complete
 export default function Simulator() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { currentProject, isLoading: projectLoading } = useCurrentProject();
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const selectedProjectId = currentProject?.id || "";
+
   const [request, setRequest] = useState("");
   const [phase, setPhase] = useState<SimulatorPhase>("input");
   const [plan, setPlan] = useState<ExecutionPlan | null>(null);
   const [dryRunResult, setDryRunResult] = useState<ExecutionResult | null>(null);
   const [executeResult, setExecuteResult] = useState<ExecutionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
 
   // Interactive workflow state
@@ -137,36 +133,28 @@ export default function Simulator() {
     resetApprovals,
     loading: approvalsLoading,
   } = useApprovalRequests({
-    organizationId: selectedProject?.organization_id || null,
+    organizationId: currentProject?.organization_id || null,
     projectId: selectedProjectId || null,
   });
 
-  // Fetch projects and user role
+  // Fetch user role when project changes
   useEffect(() => {
-    const fetchProjects = async () => {
-      if (!user) return;
+    const fetchUserRole = async () => {
+      if (!user || !selectedProjectId) return;
 
       try {
-        const { data, error: fetchError } = await supabase
-          .from("projects")
-          .select("id, name, organization_id")
-          .order("created_at", { ascending: false });
-
-        if (fetchError) throw fetchError;
-        setProjects(data || []);
-        if (data && data.length > 0) {
-          setSelectedProjectId(data[0].id);
-          setSelectedProject(data[0]);
-        }
+        const { data } = await supabase.rpc("get_project_org_role", {
+          _user_id: user.id,
+          _project_id: selectedProjectId,
+        });
+        setUserRole(data);
       } catch (err) {
-        console.error("Failed to fetch projects:", err);
-      } finally {
-        setLoading(false);
+        console.error("Failed to fetch user role:", err);
       }
     };
 
-    fetchProjects();
-  }, [user]);
+    fetchUserRole();
+  }, [user, selectedProjectId]);
 
   // Fetch user role when project changes
   useEffect(() => {
@@ -600,7 +588,7 @@ export default function Simulator() {
     );
   };
 
-  if (loading) {
+  if (projectLoading) {
     return (
       <DashboardLayout title="Simulator" description="Test your MCP actions in a sandbox">
         <div className="flex items-center justify-center py-16">
@@ -612,6 +600,7 @@ export default function Simulator() {
 
   return (
     <DashboardLayout title="Simulator" description="Plan → Preview → Execute workflow">
+      <ProjectBanner>
       <div className="space-y-6">
         {/* Progress indicator */}
         <div className="flex items-center gap-2">
@@ -651,29 +640,6 @@ export default function Simulator() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Project</Label>
-                  <Select
-                    value={selectedProjectId}
-                    onValueChange={(value) => {
-                      setSelectedProjectId(value);
-                      const project = projects.find((p) => p.id === value);
-                      setSelectedProject(project || null);
-                    }}
-                    disabled={phase !== "input"}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
                 <div className="space-y-2">
                   <Label>Request</Label>
@@ -1077,6 +1043,7 @@ export default function Simulator() {
         actionName={pinActionStep?.action_name}
         riskLevel="high-risk"
       />
+      </ProjectBanner>
     </DashboardLayout>
   );
 }

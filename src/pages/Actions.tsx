@@ -30,6 +30,7 @@ import { ActionCard } from "@/components/actions/ActionCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentProject } from "@/hooks/useCurrentProject";
+import { ProjectBanner } from "@/components/layout/ProjectBanner";
 import {
   generateActionSuggestion,
   suggestRiskLevel,
@@ -108,10 +109,11 @@ export default function Actions() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch endpoints
+      // Fetch endpoints filtered by current project
       const { data: endpointsData, error: endpointsError } = await supabase
         .from("endpoints")
-        .select("*")
+        .select("*, api_sources!inner(project_id)")
+        .eq("api_sources.project_id", currentProject!.id)
         .order("created_at", { ascending: false });
 
       if (endpointsError) throw endpointsError;
@@ -124,10 +126,11 @@ export default function Actions() {
         tags: ep.tags || [],
       })));
 
-      // Fetch actions
+      // Fetch actions filtered by current project
       const { data: actionsData, error: actionsError } = await supabase
         .from("action_templates")
         .select("*")
+        .eq("project_id", currentProject!.id)
         .order("created_at", { ascending: false });
 
       if (actionsError) throw actionsError;
@@ -468,23 +471,9 @@ export default function Actions() {
   );
 
   // Show message if no project
-  if (!projectLoading && (needsOnboarding || !currentProject)) {
-    return (
-      <DashboardLayout title="Actions" description="Convert endpoints into agent-friendly MCP actions">
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Projet requis</AlertTitle>
-          <AlertDescription>
-            Vous devez d'abord créer un projet pour gérer vos actions.
-            Rendez-vous sur la page <a href="/projects" className="underline font-medium">Projets</a> pour commencer.
-          </AlertDescription>
-        </Alert>
-      </DashboardLayout>
-    );
-  }
-
   return (
     <DashboardLayout title="Actions" description="Convert endpoints into agent-friendly MCP actions">
+      <ProjectBanner>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -740,6 +729,7 @@ export default function Actions() {
           </DialogContent>
         </Dialog>
       </div>
+      </ProjectBanner>
     </DashboardLayout>
   );
 }

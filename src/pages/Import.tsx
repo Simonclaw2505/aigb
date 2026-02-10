@@ -3,7 +3,7 @@
  * Import OpenAPI specifications via file upload, URL, or paste
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,27 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { EndpointsPreview } from "@/components/import/EndpointsPreview";
 import { ImportErrors } from "@/components/import/ImportErrors";
 import { ManualApiConfig } from "@/components/import/ManualApiConfig";
 import { ProjectSetup } from "@/components/onboarding/ProjectSetup";
+import { ProjectBanner } from "@/components/layout/ProjectBanner";
 import { useApiImport } from "@/hooks/useApiImport";
 import { useCurrentProject } from "@/hooks/useCurrentProject";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Upload,
   Link as LinkIcon,
@@ -29,7 +44,18 @@ import {
   X,
   FileUp,
   Plug,
+  Trash2,
+  Globe,
 } from "lucide-react";
+
+interface ApiSource {
+  id: string;
+  name: string;
+  source_type: string;
+  status: string;
+  created_at: string;
+  endpoint_count: number;
+}
 
 export default function Import() {
   const [importMode, setImportMode] = useState<"manual" | "openapi">("manual");
@@ -37,6 +63,9 @@ export default function Import() {
   const [specJson, setSpecJson] = useState("");
   const [activeTab, setActiveTab] = useState("upload");
   const [dragActive, setDragActive] = useState(false);
+  const [apiSources, setApiSources] = useState<ApiSource[]>([]);
+  const [loadingSources, setLoadingSources] = useState(false);
+  const [deletingSourceId, setDeletingSourceId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -65,6 +94,80 @@ export default function Import() {
       setSpecJson("");
     },
   });
+
+  // Fetch existing API sources for current project
+  const fetchApiSources = useCallback(async () => {
+    if (!currentProject) return;
+    setLoadingSources(true);
+    try {
+      const { data: sources, error } = await supabase
+        .from("api_sources")
+        .select("id, name, source_type, status, created_at")
+        .eq("project_id", currentProject.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get endpoint counts
+      const sourcesWithCounts: ApiSource[] = await Promise.all(
+        (sources || []).map(async (s) => {
+          const { count } = await supabase
+            .from("endpoints")
+            .select("*", { count: "exact", head: true })
+            .eq("api_source_id", s.id);
+          return { ...s, endpoint_count: count || 0 };
+        })
+      );
+
+      setApiSources(sourcesWithCounts);
+    } catch (err) {
+      console.error("Failed to fetch API sources:", err);
+    } finally {
+      setLoadingSources(false);
+    }
+  }, [currentProject]);
+
+  useEffect(() => {
+    fetchApiSources();
+  }, [fetchApiSources]);
+
+  // Delete an API source with cascade
+  const handleDeleteApiSource = async (sourceId: string) => {
+    setDeletingSourceId(sourceId);
+    try {
+      // 1. Delete action_templates linked to endpoints of this source
+      const { data: endpointIds } = await supabase
+        .from("endpoints")
+        .select("id")
+        .eq("api_source_id", sourceId);
+
+      if (endpointIds && endpointIds.length > 0) {
+        const ids = endpointIds.map((e) => e.id);
+        await supabase
+          .from("action_templates")
+          .delete()
+          .in("endpoint_id", ids);
+      }
+
+      // 2. Delete endpoints
+      await supabase.from("endpoints").delete().eq("api_source_id", sourceId);
+
+      // 3. Delete api_connectors
+      await supabase.from("api_connectors").delete().eq("api_source_id", sourceId);
+
+      // 4. Delete the api_source
+      const { error } = await supabase.from("api_sources").delete().eq("id", sourceId);
+      if (error) throw error;
+
+      toast.success("API source supprimée");
+      fetchApiSources();
+    } catch (err: any) {
+      console.error("Failed to delete API source:", err);
+      toast.error(err.message || "Erreur lors de la suppression");
+    } finally {
+      setDeletingSourceId(null);
+    }
+  };
 
   const isLoading = status === "parsing" || status === "saving";
 
@@ -139,12 +242,75 @@ export default function Import() {
 
   return (
     <DashboardLayout title="API Import" description="Connecte tes APIs">
+      <ProjectBanner>
       <div className="space-y-6">
-        {/* Current project indicator */}
-        {currentProject && (
-          <div className="text-sm text-muted-foreground">
-            Projet actif : <span className="font-medium text-foreground">{currentProject.name}</span>
-          </div>
+        {/* Existing API sources */}
+        {apiSources.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                APIs configurées
+              </CardTitle>
+              <CardDescription>
+                APIs déjà importées pour ce projet
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {apiSources.map((source) => (
+                  <div
+                    key={source.id}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline">{source.source_type}</Badge>
+                      <div>
+                        <p className="font-medium text-sm">{source.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {source.endpoint_count} endpoint{source.endpoint_count !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-muted-foreground hover:text-destructive"
+                          disabled={deletingSourceId === source.id}
+                        >
+                          {deletingSourceId === source.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Supprimer {source.name} ?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Cela supprimera cette API source, ses {source.endpoint_count} endpoint(s), 
+                            les connecteurs associés et les actions générées. Cette action est irréversible.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteApiSource(source.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Supprimer
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Mode toggle */}
@@ -170,7 +336,7 @@ export default function Import() {
           <ManualApiConfig
             projectId={currentProject?.id || ""}
             onSuccess={() => {
-              // Could navigate to connectors or actions
+              fetchApiSources();
             }}
           />
         )}
@@ -428,6 +594,7 @@ export default function Import() {
           </>
         )}
       </div>
+      </ProjectBanner>
     </DashboardLayout>
   );
 }
