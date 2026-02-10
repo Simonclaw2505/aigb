@@ -88,6 +88,7 @@ export default function Import() {
     reset,
   } = useApiImport({
     projectId: currentProject?.id || "",
+    organizationId: organization?.id || "",
     onSuccess: () => {
       // Reset form after successful save
       setSpecUrl("");
@@ -335,6 +336,7 @@ export default function Import() {
         {importMode === "manual" && (
           <ManualApiConfig
             projectId={currentProject?.id || ""}
+            organizationId={organization?.id || ""}
             onSuccess={() => {
               fetchApiSources();
             }}

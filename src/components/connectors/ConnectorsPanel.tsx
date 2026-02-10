@@ -143,6 +143,7 @@ export function ConnectorsPanel({ projectId, organizationId }: ConnectorsPanelPr
       }
 
       const connectorData = {
+        organization_id: organizationId,
         project_id: projectId,
         api_source_id: null,
         name: formData.name,

@@ -23,7 +23,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Zap,
-  FolderOpen,
+  Bot,
+  Wrench,
   Upload,
   Play,
   Shield,
@@ -39,11 +40,11 @@ import {
 // Navigation items grouped by section
 const mainNavItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", url: "/projects", icon: FolderOpen },
+  { title: "Outils", url: "/tools", icon: Wrench },
+  { title: "Agents", url: "/agents", icon: Bot },
 ];
 
 const workflowItems = [
-  { title: "API Import", url: "/import", icon: Upload },
   { title: "Actions", url: "/actions", icon: Play },
   { title: "Permissions", url: "/permissions", icon: Shield },
   { title: "Simulator", url: "/simulator", icon: TestTube },

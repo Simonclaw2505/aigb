@@ -289,6 +289,42 @@ export type Database = {
           },
         ]
       }
+      agent_tools: {
+        Row: {
+          agent_id: string
+          api_source_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          agent_id: string
+          api_source_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          agent_id?: string
+          api_source_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tools_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tools_api_source_id_fkey"
+            columns: ["api_source_id"]
+            isOneToOne: false
+            referencedRelation: "api_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_actions: {
         Row: {
           created_at: string
@@ -353,7 +389,8 @@ export type Database = {
           last_used_at: string | null
           name: string
           oauth_refresh_secret_id: string | null
-          project_id: string
+          organization_id: string
+          project_id: string | null
           rate_limit_requests: number | null
           rate_limit_window_seconds: number | null
           retry_config: Json | null
@@ -376,7 +413,8 @@ export type Database = {
           last_used_at?: string | null
           name: string
           oauth_refresh_secret_id?: string | null
-          project_id: string
+          organization_id: string
+          project_id?: string | null
           rate_limit_requests?: number | null
           rate_limit_window_seconds?: number | null
           retry_config?: Json | null
@@ -399,7 +437,8 @@ export type Database = {
           last_used_at?: string | null
           name?: string
           oauth_refresh_secret_id?: string | null
-          project_id?: string
+          organization_id?: string
+          project_id?: string | null
           rate_limit_requests?: number | null
           rate_limit_window_seconds?: number | null
           retry_config?: Json | null
@@ -429,6 +468,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "api_connectors_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "api_connectors_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -444,8 +490,9 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          organization_id: string
           parsed_at: string | null
-          project_id: string
+          project_id: string | null
           source_type: Database["public"]["Enums"]["api_source_type"]
           spec_content: Json | null
           spec_hash: string | null
@@ -461,8 +508,9 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          organization_id: string
           parsed_at?: string | null
-          project_id: string
+          project_id?: string | null
           source_type?: Database["public"]["Enums"]["api_source_type"]
           spec_content?: Json | null
           spec_hash?: string | null
@@ -478,8 +526,9 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          organization_id?: string
           parsed_at?: string | null
-          project_id?: string
+          project_id?: string | null
           source_type?: Database["public"]["Enums"]["api_source_type"]
           spec_content?: Json | null
           spec_hash?: string | null
@@ -490,6 +539,13 @@ export type Database = {
           version?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "api_sources_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "api_sources_project_id_fkey"
             columns: ["project_id"]

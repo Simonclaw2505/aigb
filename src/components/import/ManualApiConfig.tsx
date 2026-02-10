@@ -45,10 +45,11 @@ interface TestResult {
 
 interface ManualApiConfigProps {
   projectId: string;
+  organizationId: string;
   onSuccess?: () => void;
 }
 
-export function ManualApiConfig({ projectId, onSuccess }: ManualApiConfigProps) {
+export function ManualApiConfig({ projectId, organizationId, onSuccess }: ManualApiConfigProps) {
   const { toast } = useToast();
   const [baseUrl, setBaseUrl] = useState("");
   const [apiName, setApiName] = useState("");
@@ -154,6 +155,7 @@ export function ManualApiConfig({ projectId, onSuccess }: ManualApiConfigProps) 
       const { data: apiSource, error: sourceError } = await supabase
         .from("api_sources")
         .insert({
+          organization_id: organizationId,
           project_id: projectId,
           name: apiName.trim(),
           description: apiDescription.trim() || null,
@@ -178,6 +180,7 @@ export function ManualApiConfig({ projectId, onSuccess }: ManualApiConfigProps) 
       const { error: connError } = await supabase
         .from("api_connectors")
         .insert({
+          organization_id: organizationId,
           project_id: projectId,
           api_source_id: apiSource.id,
           name: apiName.trim(),

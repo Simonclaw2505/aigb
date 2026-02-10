@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Rocket, FolderPlus } from "lucide-react";
+import { Loader2, Rocket, Bot } from "lucide-react";
 
 interface ProjectSetupProps {
   onCreateProject: (projectName: string, orgName?: string) => Promise<any>;
@@ -44,11 +44,11 @@ export function ProjectSetup({ onCreateProject, hasOrganization }: ProjectSetupP
             <Rocket className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl">
-            {hasOrganization ? "Créer votre premier projet" : "Bienvenue sur MCP Foundry"}
+            {hasOrganization ? "Créer votre premier agent" : "Bienvenue sur MCP Foundry"}
           </CardTitle>
           <CardDescription>
             {hasOrganization
-              ? "Créez un projet pour commencer à importer vos APIs"
+              ? "Créez un agent pour commencer à orchestrer vos outils"
               : "Configurez votre espace de travail pour commencer"}
           </CardDescription>
         </CardHeader>
@@ -71,17 +71,17 @@ export function ProjectSetup({ onCreateProject, hasOrganization }: ProjectSetupP
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="project-name">Nom du projet *</Label>
+              <Label htmlFor="project-name">Nom de l'agent *</Label>
               <Input
                 id="project-name"
-                placeholder="Mon Projet API"
+                placeholder="Mon Agent Compta"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 disabled={isCreating}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Le projet contiendra vos spécifications OpenAPI et actions MCP
+                L'agent orchestrera vos outils API avec les règles que vous définirez
               </p>
             </div>
 
@@ -97,8 +97,8 @@ export function ProjectSetup({ onCreateProject, hasOrganization }: ProjectSetupP
                 </>
               ) : (
                 <>
-                  <FolderPlus className="mr-2 h-4 w-4" />
-                  Créer le projet
+                  <Bot className="mr-2 h-4 w-4" />
+                  Créer l'agent
                 </>
               )}
             </Button>
