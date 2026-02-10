@@ -1,44 +1,64 @@
 
 
-## Corrections : affichage horizontal et pagination API
+## Projet actif global + persistance des imports API
 
-### Probleme 1 : Taille horizontale enorme
+### Ce qui change
 
-Le bloc `<pre>` qui affiche la reponse JSON du serveur n'a pas de contrainte de largeur maximale. Le JSON de Productive.io contient des lignes longues qui font deborder le conteneur horizontalement.
+Le projet selectionne sur la page "Projects" devient le contexte global pour toutes les pages du workflow. Les pages Permissions, Simulator et Export n'auront plus leur propre selecteur de projet -- elles utiliseront le projet actif defini globalement.
 
-**Correction** : Ajouter les classes CSS `overflow-x-auto`, `max-w-full`, et `break-all` / `whitespace-pre-wrap` sur le `<pre>` pour forcer le retour a la ligne et empecher le debordement. Egalement ajouter `overflow-hidden` sur la Card parente.
+Les imports API (api_sources, endpoints, connecteurs) sont deja sauvegardes en base de donnees. Le probleme actuel est que le formulaire ManualApiConfig repart toujours a zero au lieu d'afficher les APIs deja configurees pour le projet.
 
-### Probleme 2 : Un seul projet affiche
+### 1. Banniere "Projet actif" sur toutes les pages workflow
 
-L'API Productive.io utilise la pagination par defaut (typiquement 30 elements par page). La reponse contient probablement un champ `meta` avec les infos de pagination, mais l'Edge Function retourne la reponse brute sans gerer la pagination. 
+Ajouter un composant reutilisable `ProjectBanner` qui affiche le nom du projet actif en haut de chaque page workflow (Import, Actions, Permissions, Simulator, Export). Si aucun projet n'est selectionne, un message invite l'utilisateur a en choisir un sur la page Projects, et le contenu de la page est bloque.
 
-Comme c'est un mode **test/preview**, on ne va pas implementer la pagination complete, mais on va :
-- Ajouter un parametre `page[size]` configurable pour que l'utilisateur puisse demander plus de resultats lors du test
-- Afficher clairement dans l'apercu combien d'elements sont retournes et s'il y en a d'autres (info `meta`)
+### 2. Supprimer les selecteurs de projet des pages workflow
 
-### Fichiers modifies
+- **Permissions.tsx** : Supprimer le `Select` de projet (lignes 128-153). Utiliser `useCurrentProject()` a la place de la logique locale de fetch projets.
+- **Simulator.tsx** : Supprimer le `Select` de projet (lignes 105-107, 145-169). Utiliser `useCurrentProject()`.
+- **Export.tsx** : Supprimer le `Select`/`<select>` de projet (lignes 56-57, 73-100, 170-197). Utiliser `useCurrentProject()`.
+- **Actions.tsx** : Deja base sur `useCurrentProject()`, mais les endpoints ne sont pas filtres par projet. Ajouter un filtre `api_sources.project_id`.
 
-**`src/components/import/ManualApiConfig.tsx`** :
-- Bloc "Reponse du serveur" : ajouter `overflow-hidden` sur la Card, et `whitespace-pre-wrap word-break-all` sur le `<pre>` pour empecher le debordement horizontal
-- Ajouter un champ optionnel "Query parameters" dans le formulaire d'endpoint pour pouvoir ajouter `?page[size]=200` ou d'autres filtres
-- Afficher un compteur d'elements quand la reponse contient un tableau `data` (ex: "1 projet retourne sur X au total")
+### 3. Bloquer l'acces au workflow sans projet
 
-### Details techniques
+Dans la sidebar (`AppSidebar.tsx`), les liens "Workflow" (Import, Actions, Permissions, Simulator, Export) ne seront pas desactives visuellement (trop complexe pour la sidebar), mais chaque page affichera un message bloquant si `currentProject` est null, redirigeant vers `/projects`.
 
+### 4. Afficher les APIs deja configurees dans Import
+
+Dans la page `Import.tsx`, ajouter une section "APIs configurees" qui charge les `api_sources` du projet courant depuis la base. Chaque source affiche son nom, le nombre d'endpoints, et un bouton supprimer. Cela evite de devoir reconfigurer l'API a chaque visite.
+
+### 5. Suppression d'une API source
+
+Ajouter un bouton supprimer avec confirmation (AlertDialog) pour chaque API source. La suppression suit cet ordre :
+1. Supprimer les `action_templates` liees aux endpoints de cette source
+2. Supprimer les `endpoints` de cette source
+3. Supprimer les `api_connectors` lies a cette source
+4. Supprimer l'`api_source` elle-meme
+
+### 6. Filtrer les endpoints par projet dans Actions
+
+Modifier `fetchData` dans `Actions.tsx` pour ne charger que les endpoints dont l'`api_source` appartient au projet courant, via une jointure :
 ```text
-Avant (ligne 384) :
-  <pre className="bg-muted rounded-md p-3 text-xs font-mono overflow-auto max-h-48">
-
-Apres :
-  <pre className="bg-muted rounded-md p-3 text-xs font-mono overflow-auto max-h-48 max-w-full whitespace-pre-wrap break-all">
-
-Card parente (ligne 379) :
-  <Card className="overflow-hidden">
+supabase.from("endpoints")
+  .select("*, api_sources!inner(project_id)")
+  .eq("api_sources.project_id", currentProject.id)
 ```
 
-Pour la pagination, un message informatif sera affiche au-dessus du JSON :
-```text
-"3 elements retournes. L'API peut utiliser la pagination -- 
- ajoute ?page[size]=200 dans le chemin pour en recuperer plus."
-```
+---
+
+### Fichiers a creer
+
+- **`src/components/layout/ProjectBanner.tsx`** : Composant affichant le projet actif ou un message d'erreur. Utilise `useCurrentProject()`.
+
+### Fichiers a modifier
+
+- **`src/pages/Import.tsx`** : Ajouter la section "APIs configurees" avec liste et suppression
+- **`src/pages/Actions.tsx`** : Filtrer endpoints par projet via jointure api_sources
+- **`src/pages/Permissions.tsx`** : Remplacer le selecteur local par `useCurrentProject()` + `ProjectBanner`
+- **`src/pages/Simulator.tsx`** : Remplacer le selecteur local par `useCurrentProject()` + `ProjectBanner`
+- **`src/pages/Export.tsx`** : Remplacer le selecteur local par `useCurrentProject()` + `ProjectBanner`
+
+### Pas de changement en base de donnees
+
+Toutes les tables et relations necessaires existent deja (`api_sources.project_id`, `endpoints.api_source_id`, `api_connectors.api_source_id`, `action_templates.project_id`). Aucune migration SQL n'est requise.
 
