@@ -376,12 +376,28 @@ export function ManualApiConfig({ projectId, onSuccess }: ManualApiConfigProps) 
 
       {/* Response preview */}
       {testResult?.body && (
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Réponse du serveur</CardTitle>
           </CardHeader>
-          <CardContent>
-            <pre className="bg-muted rounded-md p-3 text-xs font-mono overflow-auto max-h-48">
+          <CardContent className="space-y-2">
+            {(() => {
+              const body = testResult.body as Record<string, unknown>;
+              if (body && typeof body === "object" && Array.isArray(body.data)) {
+                const count = body.data.length;
+                const meta = body.meta as Record<string, unknown> | undefined;
+                const total = meta?.total_count ?? meta?.count;
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    {count} élément{count > 1 ? "s" : ""} retourné{count > 1 ? "s" : ""}
+                    {total != null ? ` sur ${total} au total` : ""}.
+                    {" "}L'API peut utiliser la pagination — ajoute <code className="text-xs bg-muted px-1 rounded">?page[size]=200</code> dans le chemin pour en récupérer plus.
+                  </p>
+                );
+              }
+              return null;
+            })()}
+            <pre className="bg-muted rounded-md p-3 text-xs font-mono overflow-auto max-h-48 max-w-full whitespace-pre-wrap break-all">
               {typeof testResult.body === "string"
                 ? testResult.body
                 : JSON.stringify(testResult.body, null, 2)}
