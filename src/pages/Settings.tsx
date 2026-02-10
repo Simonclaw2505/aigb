@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Building, User, Key, Trash2, Plug, Loader2 } from "lucide-react";
 import { ConnectorsPanel } from "@/components/connectors/ConnectorsPanel";
+import { AgentApiKeysPanel } from "@/components/settings/AgentApiKeysPanel";
 
 interface Project {
   id: string;
@@ -222,32 +223,10 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="api-keys" className="mt-6">
-          <div className="max-w-3xl">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    <Key className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">API Keys</CardTitle>
-                    <CardDescription>Manage API keys for your integrations</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <Key className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No API keys configured</p>
-                    <Button variant="outline" className="mt-4" size="sm">
-                      Create API Key
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <AgentApiKeysPanel
+            organizationId={selectedProject?.organization_id || null}
+            projects={projects}
+          />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

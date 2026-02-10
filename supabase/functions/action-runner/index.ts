@@ -228,19 +228,71 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authenticate user
+    // Authenticate: support both Bearer token and X-API-Key
+    const apiKey = req.headers.get("X-API-Key");
     const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader);
-    if (authError || !user) {
+    let user: { id: string } | null = null;
+    let authenticatedViaApiKey = false;
+    let apiKeyProjectId: string | null = null;
+    let apiKeyOrgId: string | null = null;
+
+    if (apiKey) {
+      // API Key authentication for agents
+      const encoder = new TextEncoder();
+      const data = encoder.encode(apiKey);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const keyHash = hashArray.map((b: number) => b.toString(16).padStart(2, "0")).join("");
+
+      const { data: keyRecord, error: keyError } = await supabase
+        .from("agent_api_keys")
+        .select("*")
+        .eq("key_hash", keyHash)
+        .eq("is_active", true)
+        .single();
+
+      if (keyError || !keyRecord) {
+        return new Response(
+          JSON.stringify({ error: "Invalid API key" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check expiration
+      if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ error: "API key expired" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update usage stats
+      await supabase
+        .from("agent_api_keys")
+        .update({
+          last_used_at: new Date().toISOString(),
+          usage_count: (keyRecord.usage_count || 0) + 1,
+        })
+        .eq("id", keyRecord.id);
+
+      authenticatedViaApiKey = true;
+      apiKeyProjectId = keyRecord.project_id;
+      apiKeyOrgId = keyRecord.organization_id;
+      user = { id: keyRecord.created_by || "agent" };
+    } else if (authHeader) {
+      // Bearer token authentication (existing flow)
+      const { data: authData, error: authError } = await supabase.auth.getUser(authHeader);
+      if (authError || !authData?.user) {
+        return new Response(
+          JSON.stringify({ error: "Invalid token" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      user = authData.user;
+    } else {
       return new Response(
-        JSON.stringify({ error: "Invalid token" }),
+        JSON.stringify({ error: "Unauthorized — provide Authorization or X-API-Key header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -268,21 +320,31 @@ serve(async (req) => {
 
     const project = action.project as { id: string; organization_id: string; name: string };
 
-    // Verify permission
-    const { data: permResult } = await supabase.rpc("evaluate_permission", {
-      _user_id: user.id,
-      _organization_id: project.organization_id,
-      _resource_type: "action",
-      _resource_id: action_template_id,
-      _action: "execute",
-      _context: {},
-    });
-
-    if (!permResult?.[0]?.allowed) {
+    // If authenticated via API key, verify project match
+    if (authenticatedViaApiKey && apiKeyProjectId !== project.id) {
       return new Response(
-        JSON.stringify({ error: "Permission denied", reason: permResult?.[0]?.denial_reason }),
+        JSON.stringify({ error: "API key not authorized for this project" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Verify permission (skip for API key auth — key implies permission)
+    if (!authenticatedViaApiKey) {
+      const { data: permResult } = await supabase.rpc("evaluate_permission", {
+        _user_id: user!.id,
+        _organization_id: project.organization_id,
+        _resource_type: "action",
+        _resource_id: action_template_id,
+        _action: "execute",
+        _context: {},
+      });
+
+      if (!permResult?.[0]?.allowed) {
+        return new Response(
+          JSON.stringify({ error: "Permission denied", reason: permResult?.[0]?.denial_reason }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Check idempotency
@@ -410,8 +472,8 @@ serve(async (req) => {
         connector_id: connector?.id,
         agent_session_id: crypto.randomUUID(),
         environment,
-        triggered_by: "user",
-        triggered_by_id: user.id,
+        triggered_by: authenticatedViaApiKey ? "agent" : "user",
+        triggered_by_id: user!.id,
         input_parameters: modifiedInputs,
         idempotency_key,
         status: dry_run ? "success" : "running",
@@ -602,7 +664,7 @@ serve(async (req) => {
 
     // Log the execution
     await supabase.from("audit_logs").insert({
-      user_id: user.id,
+      user_id: user!.id,
       organization_id: project.organization_id,
       action: "action_executed",
       resource_type: "action_template",
