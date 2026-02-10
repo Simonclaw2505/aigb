@@ -1,62 +1,33 @@
 
-## Connecter le Simulateur aux vraies APIs
+
+## Ajouter le type d'authentification "Custom Header"
 
 ### Probleme
 
-La fonction `execute-plan` contient une fonction `simulateExecution()` (lignes 507-560) qui retourne des donnees fictives (`mock-1`, `mock-2`, etc.) au lieu d'appeler les vraies APIs. Le composant `action-runner` existe deja et sait faire les vrais appels (authentification, retry, redaction), mais `execute-plan` ne l'utilise pas.
+Le dropdown d'authentification ne propose que API Key, Bearer Token, Basic Auth, OAuth 2.0 et No Auth. Productive.io necessite un header personnalise (`X-Auth-Token`) sans prefix, ce qui ne correspond a aucune de ces options.
 
 ### Solution
 
-Modifier `execute-plan` pour qu'en mode `execute`, il appelle la fonction `action-runner` au lieu de `simulateExecution()`.
+Ajouter une option **"Custom Header"** (`custom_header`) dans la liste des types d'authentification.
 
 ### Fichier modifie
 
-**`supabase/functions/execute-plan/index.ts`**
+**`src/components/connectors/ConnectorsPanel.tsx`**
 
-1. **Remplacer `simulateExecution()`** par un appel HTTP interne vers `action-runner` :
-   - Construire la requete avec `action_template_id`, `inputs`, et le token d'authentification de l'utilisateur
-   - L'URL cible sera `${SUPABASE_URL}/functions/v1/action-runner`
-   - Passer le `Authorization` header du user pour que `action-runner` verifie les permissions
+1. Ajouter une entree dans le tableau `authTypes` :
+   ```text
+   { value: "custom_header", label: "Custom Header", description: "Custom header name and value" }
+   ```
 
-2. **Garder `simulateExecution()` comme fallback** si l'appel a `action-runner` echoue pour une raison d'infrastructure (optionnel, peut etre supprime)
+2. Adapter la section Authentication du formulaire pour que `custom_header` affiche les champs **Header Name** et **API Key / Token** sans champ prefix.
 
-3. **Mapper le resultat** de `action-runner` vers le format `StepResult` attendu par le simulateur
+**`supabase/functions/action-runner/index.ts`**
 
-### Details techniques
+3. Verifier que le type `custom_header` est correctement gere dans la logique d'injection des headers : le header doit etre `{header_name}: {credential_value}` sans prefix.
 
-Le bloc actuel (lignes 356-417) :
-```text
-// Simulate execution
-const executionResult = await simulateExecution(action, step.inputs);
-```
+### Pour Productive.io
 
-Sera remplace par un appel reel :
-```text
-const response = await fetch(
-  `${supabaseUrl}/functions/v1/action-runner`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${authHeader}`,
-    },
-    body: JSON.stringify({
-      action_template_id: step.action_template_id,
-      inputs: step.inputs,
-      environment: "development",
-      dry_run: false,
-    }),
-  }
-);
-const actionResult = await response.json();
-```
-
-Le resultat de `action-runner` contient deja `success`, `data`, `error`, `execution_id`, `retries_used`, etc. -- on mappe directement vers `StepResult`.
-
-La fonction `simulateExecution()` sera supprimee car elle n'a plus d'utilite.
-
-### Impact
-
-- Le simulateur executera les vraies requetes API via les connecteurs configures (ex: Productive.io)
-- Les resultats reels seront affiches dans l'interface
-- Les execution_runs seront enregistres par `action-runner` (pas de double enregistrement -- on supprime l'insert dans `execute-plan` car `action-runner` le fait deja)
+Apres cette modification, tu pourras configurer :
+- **Type** : Custom Header
+- **Header Name** : `X-Auth-Token`
+- **API Key / Token** : ta cle API Productive
