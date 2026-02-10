@@ -5,6 +5,8 @@
 
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { ProjectBanner } from "@/components/layout/ProjectBanner";
+import { useCurrentProject } from "@/hooks/useCurrentProject";
 import {
   Card,
   CardContent,
@@ -42,8 +44,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useExport, MCPExport } from "@/hooks/useExport";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 
 export default function Export() {
@@ -53,12 +53,11 @@ export default function Export() {
   const [releaseNotes, setReleaseNotes] = useState("");
   const [copied, setCopied] = useState(false);
   const [endpointCopied, setEndpointCopied] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
-  const [loadingProjects, setLoadingProjects] = useState(true);
   const [previewExport, setPreviewExport] = useState<MCPExport | null>(null);
 
-  const { organizationId } = useAuth();
+  const { currentProject, isLoading: projectLoading } = useCurrentProject();
+  const selectedProject = currentProject?.id || null;
+
   const {
     exports,
     loading,
@@ -70,34 +69,12 @@ export default function Export() {
     getApiEndpoint,
   } = useExport({ projectId: selectedProject });
 
-  // Fetch projects
+  // Fetch exports when project changes
   useEffect(() => {
-    async function loadProjects() {
-      if (!organizationId) return;
-
-      try {
-        const { data, error } = await supabase
-          .from("projects")
-          .select("id, name")
-          .eq("organization_id", organizationId)
-          .in("status", ["draft", "active"])
-          .order("name");
-
-        if (!error && data) {
-          setProjects(data);
-          if (data.length > 0 && !selectedProject) {
-            setSelectedProject(data[0].id);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load projects:", err);
-      } finally {
-        setLoadingProjects(false);
-      }
+    if (selectedProject) {
+      fetchExports();
     }
-
-    loadProjects();
-  }, [organizationId, selectedProject]);
+  }, [selectedProject, fetchExports]);
 
   // Fetch exports when project changes
   useEffect(() => {
@@ -150,7 +127,7 @@ export default function Export() {
     setTimeout(() => setEndpointCopied(false), 2000);
   };
 
-  if (loadingProjects) {
+  if (projectLoading) {
     return (
       <DashboardLayout title="Export" description="Generate MCP configuration for your AI agents">
         <div className="flex items-center justify-center py-12">
@@ -165,36 +142,8 @@ export default function Export() {
       title="Export"
       description="Generate versioned MCP packages for your AI agents"
     >
+      <ProjectBanner>
       <div className="space-y-6">
-        {/* Project selector - always show current project */}
-        {projects.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Project</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {projects.length > 1 ? (
-                <select
-                  className="w-full p-2 border rounded-md bg-background"
-                  value={selectedProject || ""}
-                  onChange={(e) => setSelectedProject(e.target.value)}
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">{projects[0].name}</span>
-                  <Badge variant="secondary">selected</Badge>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Export Configuration */}
@@ -561,6 +510,7 @@ export default function Export() {
           </Card>
         )}
       </div>
+      </ProjectBanner>
     </DashboardLayout>
   );
 }
