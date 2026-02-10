@@ -8,7 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 
 export interface ApiConnector {
   id: string;
-  project_id: string;
+  project_id: string | null;
+  organization_id: string;
   api_source_id: string | null;
   name: string;
   description: string | null;
@@ -84,6 +85,7 @@ export function useApiConnectors(projectId: string | null) {
       const { data, error: insertError } = await supabase
         .from("api_connectors")
         .insert({
+          organization_id: connector.organization_id,
           project_id: connector.project_id,
           api_source_id: connector.api_source_id,
           name: connector.name,

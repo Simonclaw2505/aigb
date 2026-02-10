@@ -1,6 +1,6 @@
 /**
- * Projects page for MCP Foundry
- * List and manage all MCP conversion projects
+ * Agents page for MCP Foundry
+ * List and manage all AI agents
  */
 
 import { useState } from "react";
@@ -32,7 +32,7 @@ import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus, Search, FolderOpen, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2 } from "lucide-react";
+import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2 } from "lucide-react";
 
 // Status badge variants
 const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -82,7 +82,7 @@ export default function Projects() {
       if (error) throw error;
 
       toast.success(
-        `Projet ${newStatus === "active" ? "activé" : newStatus === "archived" ? "archivé" : "mis en brouillon"}`
+        `Agent ${newStatus === "active" ? "activé" : newStatus === "archived" ? "archivé" : "mis en brouillon"}`
       );
       refetch();
     } catch (error: any) {
@@ -109,7 +109,7 @@ export default function Projects() {
 
       if (error) throw error;
 
-      toast.success("Projet créé avec succès !");
+      toast.success("Agent créé avec succès !");
       setIsCreateOpen(false);
       setNewProjectName("");
       setNewProjectDesc("");
@@ -124,7 +124,7 @@ export default function Projects() {
   // Show loading state
   if (isLoading) {
     return (
-      <DashboardLayout title="Projects" description="Manage your MCP conversion projects">
+      <DashboardLayout title="Agents" description="Gérez vos agents IA">
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -135,7 +135,7 @@ export default function Projects() {
   // Show onboarding if user needs to create first project
   if (needsOnboarding) {
     return (
-      <DashboardLayout title="Projects" description="Manage your MCP conversion projects">
+      <DashboardLayout title="Agents" description="Gérez vos agents IA">
         <ProjectSetup
           onCreateProject={createDefaultProject}
           hasOrganization={!!organization}
@@ -145,14 +145,14 @@ export default function Projects() {
   }
 
   return (
-    <DashboardLayout title="Projects" description="Manage your MCP conversion projects">
+    <DashboardLayout title="Agents" description="Gérez vos agents IA">
       <div className="space-y-6">
         {/* Header with search and create */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search projects..."
+              placeholder="Rechercher un agent..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -162,22 +162,22 @@ export default function Projects() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                New Project
+                Nouvel Agent
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Project</DialogTitle>
+                <DialogTitle>Créer un Agent</DialogTitle>
                 <DialogDescription>
-                  Set up a new project to convert an API to MCP format
+                  Configurez un nouvel agent IA avec ses outils et permissions
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Project Name</Label>
+                  <Label htmlFor="name">Nom de l'agent</Label>
                   <Input
                     id="name"
-                    placeholder="My API Project"
+                    placeholder="Mon Agent Compta"
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
                     disabled={isCreating}
@@ -187,7 +187,7 @@ export default function Projects() {
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
-                    placeholder="Brief description of the API..."
+                    placeholder="Description de l'agent..."
                     rows={3}
                     value={newProjectDesc}
                     onChange={(e) => setNewProjectDesc(e.target.value)}
@@ -197,16 +197,16 @@ export default function Projects() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating}>
-                  Cancel
+                  Annuler
                 </Button>
                 <Button onClick={handleCreateProject} disabled={!newProjectName.trim() || isCreating}>
                   {isCreating ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      Création...
                     </>
                   ) : (
-                    "Create Project"
+                    "Créer l'agent"
                   )}
                 </Button>
               </DialogFooter>
@@ -219,20 +219,20 @@ export default function Projects() {
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <FolderOpen className="h-8 w-8 text-muted-foreground" />
+                <Bot className="h-8 w-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-medium mb-2">
-                {searchQuery ? "No matching projects" : "No projects yet"}
+                {searchQuery ? "Aucun agent trouvé" : "Aucun agent"}
               </h3>
               <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
                 {searchQuery
-                  ? "Try adjusting your search query"
-                  : "Create your first project to start converting APIs into MCP toolsets"}
+                  ? "Essayez une autre recherche"
+                  : "Créez votre premier agent pour commencer à orchestrer vos outils"}
               </p>
               {!searchQuery && (
                 <Button onClick={() => setIsCreateOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Create Project
+                  Créer un agent
                 </Button>
               )}
             </CardContent>

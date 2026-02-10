@@ -15,6 +15,7 @@ import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import Tools from "./pages/Tools";
 import Import from "./pages/Import";
 import Actions from "./pages/Actions";
 import Permissions from "./pages/Permissions";
@@ -50,10 +51,22 @@ const App = () => (
               }
             />
             <Route
-              path="/projects"
+              path="/agents"
               element={
                 <ProtectedRoute>
                   <Projects />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/projects"
+              element={<Navigate to="/agents" replace />}
+            />
+            <Route
+              path="/tools"
+              element={
+                <ProtectedRoute>
+                  <Tools />
                 </ProtectedRoute>
               }
             />

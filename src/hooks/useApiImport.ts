@@ -10,6 +10,7 @@ import { parseOpenAPISpec, hashSpec, type ParsedSpec, type ParsedEndpoint } from
 
 interface UseApiImportOptions {
   projectId: string;
+  organizationId: string;
   onSuccess?: () => void;
 }
 
@@ -21,7 +22,7 @@ interface ImportState {
   sourceUrl: string | null;
 }
 
-export function useApiImport({ projectId, onSuccess }: UseApiImportOptions) {
+export function useApiImport({ projectId, organizationId, onSuccess }: UseApiImportOptions) {
   const { toast } = useToast();
   const [state, setState] = useState<ImportState>({
     status: "idle",
@@ -156,6 +157,7 @@ export function useApiImport({ projectId, onSuccess }: UseApiImportOptions) {
       const { data: apiSource, error: sourceError } = await supabase
         .from("api_sources")
         .insert({
+          organization_id: organizationId,
           project_id: projectId,
           name: state.parsedSpec.title,
           description: state.parsedSpec.description,
