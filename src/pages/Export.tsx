@@ -45,6 +45,8 @@ import {
 } from "lucide-react";
 import { useExport, MCPExport } from "@/hooks/useExport";
 import { formatDistanceToNow } from "date-fns";
+import { OpenAIExportCard } from "@/components/export/OpenAIExportCard";
+import { IntegrationGuide } from "@/components/export/IntegrationGuide";
 
 export default function Export() {
   const [format, setFormat] = useState<"json" | "yaml">("json");
@@ -509,6 +511,17 @@ export default function Export() {
             </CardContent>
           </Card>
         )}
+
+        {/* OpenAI Export */}
+        <OpenAIExportCard
+          exportData={previewExport}
+          projectName={currentProject?.name || "My Project"}
+        />
+
+        {/* Integration Guide */}
+        <IntegrationGuide
+          actionRunnerUrl={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/action-runner`}
+        />
       </div>
       </ProjectBanner>
     </DashboardLayout>

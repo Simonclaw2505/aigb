@@ -104,6 +104,7 @@ const ALLOWED_HEADERS = [
   "x-supabase-client-runtime",
   "x-supabase-client-runtime-version",
   "x-internal-call", // For internal edge function calls
+  "x-api-key", // For agent API key authentication
 ].join(", ");
 
 // Allowed HTTP methods
