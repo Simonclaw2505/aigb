@@ -24,6 +24,7 @@ import { formatDistanceToNow } from "date-fns";
 const authTypes = [
   { value: "api_key", label: "API Key", description: "Pass API key in header" },
   { value: "bearer", label: "Bearer Token", description: "Authorization: Bearer <token>" },
+  { value: "custom_header", label: "Custom Header", description: "Custom header name and value" },
   { value: "basic", label: "Basic Auth", description: "Username and password" },
   { value: "oauth2", label: "OAuth 2.0", description: "OAuth 2.0 with refresh token" },
   { value: "none", label: "No Auth", description: "Public API" },
@@ -150,7 +151,7 @@ export function ConnectorsPanel({ projectId, organizationId }: ConnectorsPanelPr
         auth_type: formData.auth_type,
         auth_config: {
           header_name: formData.auth_header_name,
-          prefix: formData.auth_prefix,
+          prefix: formData.auth_type === "custom_header" ? "" : formData.auth_prefix,
         },
         credential_secret_id: credentialSecretId,
         default_headers: parsedHeaders,
@@ -295,6 +296,12 @@ export function ConnectorsPanel({ projectId, organizationId }: ConnectorsPanelPr
                           onChange={(e) => setFormData(prev => ({ ...prev, auth_header_name: e.target.value }))}
                         />
                       </div>
+
+                      {formData.auth_type === "custom_header" && (
+                        <p className="text-xs text-muted-foreground">
+                          Header will be sent as: {formData.auth_header_name}: {"<credential>"} (no prefix)
+                        </p>
+                      )}
 
                       {(formData.auth_type === "api_key" || formData.auth_type === "bearer") && (
                         <div className="space-y-2">
