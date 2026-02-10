@@ -482,11 +482,11 @@ serve(async (req) => {
           .single();
 
         if (secret) {
-          // Decrypt would happen here - for now we simulate
+          const credentialValue = secret.encrypted_value;
           const authConfig = connector.auth_config as { header_name?: string; prefix?: string };
           const headerName = authConfig.header_name || "Authorization";
           const prefix = authConfig.prefix || "";
-          authHeaders[headerName] = `${prefix}[CREDENTIAL]`.trim();
+          authHeaders[headerName] = prefix ? `${prefix} ${credentialValue}`.trim() : credentialValue;
         }
       }
 
