@@ -353,54 +353,53 @@ serve(async (req) => {
           },
         });
       } else {
-        // Actually execute (in real implementation, this would call the actual API)
+        // Execute via action-runner edge function (real API calls)
         try {
-          // Create execution run record
-          const { data: executionRun } = await supabase
-            .from("execution_runs")
-            .insert({
-              organization_id: project.organization_id,
-              project_id,
-              action_template_id: step.action_template_id,
-              agent_session_id: session_id,
-              environment: "development",
-              triggered_by: "user",
-              triggered_by_id: user.id,
-              input_parameters: step.inputs,
-              status: "running",
-              started_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
-
-          // Simulate execution (in production, this would make actual API calls)
-          const executionResult = await simulateExecution(action, step.inputs);
-
-          // Update execution run with result
-          await supabase
-            .from("execution_runs")
-            .update({
-              status: executionResult.success ? "success" : "failed",
-              output_data: executionResult.data,
-              error_message: executionResult.error,
-              completed_at: new Date().toISOString(),
-              duration_ms: 150, // Simulated
-            })
-            .eq("id", executionRun?.id);
-
-          results.push({
-            step_number: step.step_number,
-            action_name: step.action_name,
-            status: executionResult.success ? "success" : "failed",
-            result: executionResult.data,
-            error: executionResult.error,
-            permission_check: {
-              allowed: true,
-              requires_confirmation: requiresConfirmation,
-              requires_approval: requiresApproval,
-              requires_security_pin: requiresSecurityPin,
+          const actionRunnerUrl = `${supabaseUrl}/functions/v1/action-runner`;
+          const response = await fetch(actionRunnerUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${authHeader}`,
             },
+            body: JSON.stringify({
+              action_template_id: step.action_template_id,
+              inputs: step.inputs,
+              environment: "development",
+              dry_run: false,
+            }),
           });
+
+          const actionResult = await response.json();
+
+          if (!response.ok) {
+            results.push({
+              step_number: step.step_number,
+              action_name: step.action_name,
+              status: "failed",
+              error: actionResult.error || `action-runner returned ${response.status}`,
+              permission_check: {
+                allowed: true,
+                requires_confirmation: requiresConfirmation,
+                requires_approval: requiresApproval,
+                requires_security_pin: requiresSecurityPin,
+              },
+            });
+          } else {
+            results.push({
+              step_number: step.step_number,
+              action_name: step.action_name,
+              status: actionResult.success ? "success" : "failed",
+              result: actionResult.data,
+              error: actionResult.error,
+              permission_check: {
+                allowed: true,
+                requires_confirmation: requiresConfirmation,
+                requires_approval: requiresApproval,
+                requires_security_pin: requiresSecurityPin,
+              },
+            });
+          }
         } catch (execError) {
           results.push({
             step_number: step.step_number,
@@ -504,57 +503,3 @@ function generateDryRunPreview(
   return { would_affect: wouldAffect, changes };
 }
 
-async function simulateExecution(
-  action: Record<string, unknown>,
-  inputs: Record<string, unknown>
-): Promise<{ success: boolean; data?: unknown; error?: string }> {
-  // In production, this would make actual API calls
-  // For simulation, we return mock success
-  
-  const method = action.endpoint_method as string || "GET";
-  
-  // Simulate some processing time
-  await new Promise(resolve => setTimeout(resolve, 100));
-
-  // Return simulated result based on method
-  if (method === "GET") {
-    return {
-      success: true,
-      data: {
-        results: [
-          { id: "mock-1", ...inputs },
-          { id: "mock-2", ...inputs },
-        ],
-        total: 2,
-      },
-    };
-  } else if (method === "POST") {
-    return {
-      success: true,
-      data: {
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        ...inputs,
-      },
-    };
-  } else if (method === "PUT" || method === "PATCH") {
-    return {
-      success: true,
-      data: {
-        updated: true,
-        affected_count: 1,
-        ...inputs,
-      },
-    };
-  } else if (method === "DELETE") {
-    return {
-      success: true,
-      data: {
-        deleted: true,
-        affected_count: 1,
-      },
-    };
-  }
-
-  return { success: true, data: { result: "Operation completed" } };
-}
