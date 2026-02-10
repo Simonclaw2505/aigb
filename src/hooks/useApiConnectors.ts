@@ -126,6 +126,7 @@ export function useApiConnectors(projectId: string | null) {
           base_url: updates.base_url,
           auth_type: updates.auth_type,
           auth_config: updates.auth_config ? JSON.parse(JSON.stringify(updates.auth_config)) : undefined,
+          credential_secret_id: updates.credential_secret_id,
           default_headers: updates.default_headers ? JSON.parse(JSON.stringify(updates.default_headers)) : undefined,
           timeout_ms: updates.timeout_ms,
           retry_config: updates.retry_config ? JSON.parse(JSON.stringify(updates.retry_config)) : undefined,
