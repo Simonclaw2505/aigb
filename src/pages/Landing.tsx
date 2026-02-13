@@ -150,6 +150,92 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Process */}
+      <section className="py-20 px-6 border-t border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-4">Comment ça marche</h2>
+          <p className="text-white/50 text-center mb-14 max-w-2xl mx-auto">
+            En 4 étapes, reprenez le contrôle total sur ce que vos agents IA peuvent faire.
+          </p>
+
+          <div className="space-y-6">
+            {/* Step 1 */}
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+              <div className="flex items-start gap-5">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">1</div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Connectez vos outils</h3>
+                  <p className="text-sm text-white/50 leading-relaxed">
+                    Importez vos APIs métier en quelques clics : gestion de stock, CRM, paiement, facturation, logistique…
+                    Chaque outil connecté devient disponible dans AIGB, prêt à être utilisé par vos agents de manière encadrée.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+              <div className="flex items-start gap-5">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">2</div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Configurez vos agents</h3>
+                  <p className="text-sm text-white/50 leading-relaxed">
+                    Créez vos agents IA par fonction : support client, vente, comptabilité, logistique…
+                    Pour chacun, définissez précisément à quels outils il a accès et quelles actions il peut réaliser.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+              <div className="flex items-start gap-5">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">3</div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Limitez et sécurisez chaque action</h3>
+                  <p className="text-sm text-white/50 leading-relaxed">
+                    Définissez des permissions granulaires par agent <strong className="text-white/70">et</strong> par utilisateur.
+                    Chaque action peut être autorisée, bloquée, soumise à confirmation ou à approbation hiérarchique —
+                    avec des niveaux de risque adaptés (lecture seule, écriture sûre, écriture risquée, irréversible).
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 4 */}
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+              <div className="flex items-start gap-5">
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">4</div>
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Des garde-fous à chaque niveau</h3>
+                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                    AIGB intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet :
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {[
+                      { label: "Approbation multi-signature", desc: "Plusieurs administrateurs doivent valider les actions critiques." },
+                      { label: "Code PIN de sécurité", desc: "Chaque admin dispose d'un code unique pour autoriser les opérations sensibles." },
+                      { label: "Quotas journaliers", desc: "Limites sur les actions risquées pour éviter les dérapages." },
+                      { label: "Audit complet & rollback", desc: "Chaque action est tracée, détaillée et réversible en un clic." },
+                      { label: "Politique sandbox", desc: "Les actions doivent réussir en environnement de test avant la production." },
+                      { label: "Rate limiting", desc: "Contrôle du nombre de requêtes par agent et par fenêtre de temps." },
+                    ].map(({ label, desc }) => (
+                      <div key={label} className="flex items-start gap-2 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                        <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <span className="text-sm font-medium text-white/80">{label}</span>
+                          <p className="text-xs text-white/40 mt-0.5">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Video */}
       <section id="video" className="py-20 px-6 border-t border-white/5">
         <div className="max-w-4xl mx-auto">
