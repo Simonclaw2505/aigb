@@ -70,6 +70,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-3">
             <img src={aigbLogo} alt="AIGB" className="h-8" />
+            <span className="text-sm font-semibold text-white/90">AI Governance Board</span>
           </div>
           <Button
             variant="outline"
