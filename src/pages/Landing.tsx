@@ -75,8 +75,8 @@ export default function Landing() {
           <Button
             variant="outline"
             size="sm"
-            className="border-white/20 text-white hover:bg-white/10"
-            onClick={() => navigate("/auth")}
+            className="border-white/20 bg-transparent text-white hover:bg-white/10"
+            onClick={() => document.getElementById("signup")?.scrollIntoView({ behavior: "smooth" })}
           >
             Se connecter
           </Button>
