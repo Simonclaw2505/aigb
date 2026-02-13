@@ -1369,6 +1369,45 @@ export type Database = {
           },
         ]
       }
+      prospects: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          job_title: string | null
+          last_name: string
+          message: string | null
+          phone: string | null
+          type: string
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          job_title?: string | null
+          last_name: string
+          message?: string | null
+          phone?: string | null
+          type: string
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          job_title?: string | null
+          last_name?: string
+          message?: string | null
+          phone?: string | null
+          type?: string
+        }
+        Relationships: []
+      }
       secrets: {
         Row: {
           access_count: number
