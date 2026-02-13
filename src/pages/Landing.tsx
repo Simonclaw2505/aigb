@@ -87,7 +87,7 @@ export default function Landing() {
       <section className="relative pt-32 pb-20 px-6 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[hsl(220,70%,50%)]/10 via-transparent to-transparent" />
         <div className="max-w-5xl mx-auto text-center relative z-10">
-          <img src={aigbLogo} alt="AIGB" className="h-16 md:h-20 mx-auto mb-8" />
+          <img src={aigbLogo} alt="AIGB" className="h-16 md:h-20 mx-auto mb-8 drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]" />
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
             Make the future{" "}
             <span className="bg-gradient-to-r from-[hsl(220,70%,55%)] to-[hsl(260,70%,65%)] bg-clip-text text-transparent">
