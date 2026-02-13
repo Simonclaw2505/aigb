@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Users, Lock, Eye, ChevronRight, Check, Building2, User } from "lucide-react";
+import { Shield, Users, Lock, Eye, ChevronRight, Check, Building2, User, Plug, Bot, SlidersHorizontal, ShieldCheck, KeyRound, Gauge, History, FlaskConical, Timer, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -158,70 +158,122 @@ export default function Landing() {
             En 4 étapes, reprenez le contrôle total sur ce que vos agents IA peuvent faire.
           </p>
 
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Step 1 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-              <div className="flex items-start gap-5">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">1</div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Connectez vos outils</h3>
-                  <p className="text-sm text-white/50 leading-relaxed">
-                    Importez vos APIs métier en quelques clics : gestion de stock, CRM, paiement, facturation, logistique…
-                    Chaque outil connecté devient disponible dans AIGB, prêt à être utilisé par vos agents de manière encadrée.
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(220,70%,50%)]/[0.06] to-transparent overflow-hidden group">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[hsl(220,70%,50%)]/[0.04] rounded-full blur-3xl" />
+              <div className="flex items-start gap-5 relative z-10">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(220,70%,50%)] to-[hsl(260,70%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(220,70%,50%)]/20">
+                  <Plug className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-mono text-[hsl(220,70%,60%)] bg-[hsl(220,70%,50%)]/10 px-2 py-0.5 rounded-full">Étape 1</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-3">Connectez vos outils</h3>
+                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                    Importez vos APIs métier en quelques clics. Chaque outil connecté devient disponible dans AIGB, prêt à être utilisé par vos agents de manière encadrée.
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    {["CRM", "Paiement", "Stock", "Facturation", "Logistique", "Email"].map((tool) => (
+                      <span key={tool} className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white/60">
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Step 2 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-              <div className="flex items-start gap-5">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">2</div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Configurez vos agents</h3>
-                  <p className="text-sm text-white/50 leading-relaxed">
-                    Créez vos agents IA par fonction : support client, vente, comptabilité, logistique…
-                    Pour chacun, définissez précisément à quels outils il a accès et quelles actions il peut réaliser.
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(260,70%,50%)]/[0.06] to-transparent overflow-hidden">
+              <div className="absolute bottom-0 left-0 w-40 h-40 bg-[hsl(260,70%,55%)]/[0.04] rounded-full blur-3xl" />
+              <div className="flex items-start gap-5 relative z-10">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(260,70%,55%)] to-[hsl(300,60%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(260,70%,55%)]/20">
+                  <Bot className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-mono text-[hsl(260,70%,65%)] bg-[hsl(260,70%,55%)]/10 px-2 py-0.5 rounded-full">Étape 2</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-3">Configurez vos agents</h3>
+                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                    Créez vos agents IA par fonction et assignez-leur les outils dont ils ont besoin.
                   </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { name: "Support client", tools: "CRM, Email" },
+                      { name: "Vente", tools: "CRM, Paiement" },
+                      { name: "Comptabilité", tools: "Facturation, Paiement" },
+                    ].map(({ name, tools }) => (
+                      <div key={name} className="p-3 rounded-xl bg-white/[0.04] border border-white/8">
+                        <div className="text-sm font-medium text-white/80 mb-1">{name}</div>
+                        <div className="text-xs text-white/35">{tools}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Step 3 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-              <div className="flex items-start gap-5">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">3</div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Limitez et sécurisez chaque action</h3>
-                  <p className="text-sm text-white/50 leading-relaxed">
-                    Définissez des permissions granulaires par agent <strong className="text-white/70">et</strong> par utilisateur.
-                    Chaque action peut être autorisée, bloquée, soumise à confirmation ou à approbation hiérarchique —
-                    avec des niveaux de risque adaptés (lecture seule, écriture sûre, écriture risquée, irréversible).
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(30,80%,50%)]/[0.06] to-transparent overflow-hidden">
+              <div className="absolute top-0 left-1/2 w-40 h-40 bg-[hsl(30,80%,50%)]/[0.04] rounded-full blur-3xl" />
+              <div className="flex items-start gap-5 relative z-10">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(30,80%,50%)] to-[hsl(15,80%,50%)] flex items-center justify-center shadow-lg shadow-[hsl(30,80%,50%)]/20">
+                  <SlidersHorizontal className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-mono text-[hsl(30,80%,55%)] bg-[hsl(30,80%,50%)]/10 px-2 py-0.5 rounded-full">Étape 3</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-3">Limitez et sécurisez chaque action</h3>
+                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                    Permissions granulaires par agent <strong className="text-white/70">et</strong> par utilisateur.
+                    Chaque action peut être autorisée, bloquée, soumise à confirmation ou à approbation.
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: "Lecture seule", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+                      { label: "Écriture sûre", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+                      { label: "Écriture risquée", color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
+                      { label: "Irréversible", color: "bg-red-500/15 text-red-400 border-red-500/20" },
+                    ].map(({ label, color }) => (
+                      <span key={label} className={`text-xs px-3 py-1.5 rounded-lg border ${color}`}>
+                        {label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Step 4 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-white/[0.02]">
-              <div className="flex items-start gap-5">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/15 flex items-center justify-center text-[hsl(220,70%,55%)] font-bold text-lg">4</div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Des garde-fous à chaque niveau</h3>
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/[0.06] to-transparent overflow-hidden">
+              <div className="absolute bottom-0 right-0 w-40 h-40 bg-emerald-500/[0.04] rounded-full blur-3xl" />
+              <div className="flex items-start gap-5 relative z-10">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                  <ShieldCheck className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Étape 4</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-3">Des garde-fous à chaque niveau</h3>
                   <p className="text-sm text-white/50 leading-relaxed mb-4">
-                    AIGB intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet :
+                    AIGB intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet.
                   </p>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {[
-                      { label: "Approbation multi-signature", desc: "Plusieurs administrateurs doivent valider les actions critiques." },
-                      { label: "Code PIN de sécurité", desc: "Chaque admin dispose d'un code unique pour autoriser les opérations sensibles." },
-                      { label: "Quotas journaliers", desc: "Limites sur les actions risquées pour éviter les dérapages." },
-                      { label: "Audit complet & rollback", desc: "Chaque action est tracée, détaillée et réversible en un clic." },
-                      { label: "Politique sandbox", desc: "Les actions doivent réussir en environnement de test avant la production." },
-                      { label: "Rate limiting", desc: "Contrôle du nombre de requêtes par agent et par fenêtre de temps." },
-                    ].map(({ label, desc }) => (
-                      <div key={label} className="flex items-start gap-2 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                        <Check className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      { icon: Fingerprint, label: "Multi-signature", desc: "Plusieurs admins valident les actions critiques.", color: "text-violet-400" },
+                      { icon: KeyRound, label: "Code PIN unique", desc: "Chaque admin a un code pour les opérations sensibles.", color: "text-amber-400" },
+                      { icon: Gauge, label: "Quotas journaliers", desc: "Limites sur les actions risquées.", color: "text-rose-400" },
+                      { icon: History, label: "Audit & rollback", desc: "Chaque action tracée et réversible.", color: "text-blue-400" },
+                      { icon: FlaskConical, label: "Politique sandbox", desc: "Test obligatoire avant la production.", color: "text-emerald-400" },
+                      { icon: Timer, label: "Rate limiting", desc: "Contrôle des requêtes par agent.", color: "text-cyan-400" },
+                    ].map(({ icon: Icon, label, desc, color }) => (
+                      <div key={label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors">
+                        <Icon className={`w-5 h-5 ${color} mt-0.5 flex-shrink-0`} />
                         <div>
                           <span className="text-sm font-medium text-white/80">{label}</span>
                           <p className="text-xs text-white/40 mt-0.5">{desc}</p>
