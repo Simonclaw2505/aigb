@@ -253,22 +253,52 @@ serve(async (req) => {
       if (riskLevel === "irreversible" || riskLevel === "risky_write") {
         requiresSecurityPin = true;
         
-        // In execute mode, verify PIN was provided and is valid
+        // SECURITY: Server-side PIN verification for high-risk actions
         if (mode === "execute" && requiresSecurityPin) {
           if (!security_pin) {
             allowed = false;
             denialReason = "Security PIN required for high-risk action";
           } else {
-            // Get user's PIN hash from profile/settings and verify
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("id")
-              .eq("user_id", user.id)
-              .single();
-            
-            // For now, we trust the client-side PIN verification
-            // In production, you'd store the PIN hash and verify server-side
-            // The verify-security-pin edge function handles this
+            // Validate PIN format first
+            if (!/^\d{6}$/.test(security_pin)) {
+              allowed = false;
+              denialReason = "Invalid PIN format — must be 6 digits";
+            } else {
+              // Server-side PIN verification via database
+              const { data: pinData } = await supabase
+                .from("admin_security_pins")
+                .select("pin_hash")
+                .eq("organization_id", project.organization_id)
+                .eq("user_id", user.id)
+                .single();
+
+              if (!pinData) {
+                allowed = false;
+                denialReason = "Security PIN not configured for this user";
+              } else {
+                // Verify PIN using database function (SHA-256 comparison)
+                const { data: isValid, error: pinError } = await supabase
+                  .rpc("verify_security_pin", { pin: security_pin, stored_hash: pinData.pin_hash });
+
+                if (pinError || !isValid) {
+                  allowed = false;
+                  denialReason = "Invalid security PIN";
+
+                  // Log failed PIN attempt
+                  await supabase.from("audit_logs").insert({
+                    user_id: user.id,
+                    organization_id: project.organization_id,
+                    action: "security_pin_failed",
+                    resource_type: "security_pin",
+                    metadata: {
+                      session_id,
+                      step_number: step.step_number,
+                      action_template_id: step.action_template_id,
+                    },
+                  });
+                }
+              }
+            }
           }
         }
       }
