@@ -86,10 +86,7 @@ export default function Landing() {
       <section className="relative pt-32 pb-20 px-6 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[hsl(220,70%,50%)]/10 via-transparent to-transparent" />
         <div className="max-w-5xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-sm text-white/70 mb-8">
-            <Shield className="w-4 h-4 text-[hsl(220,70%,55%)]" />
-            AI Governance Board
-          </div>
+          <img src={aigbLogo} alt="AIGB" className="h-16 md:h-20 mx-auto mb-8" />
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
             Make the future{" "}
             <span className="bg-gradient-to-r from-[hsl(220,70%,55%)] to-[hsl(260,70%,65%)] bg-clip-text text-transparent">
@@ -112,7 +109,7 @@ export default function Landing() {
             <Button
               variant="outline"
               size="lg"
-              className="border-white/20 text-white hover:bg-white/10 px-8 h-12 text-base"
+              className="border-white/20 bg-transparent text-white hover:bg-white/10 px-8 h-12 text-base"
               onClick={() => document.getElementById("video")?.scrollIntoView({ behavior: "smooth" })}
             >
               Voir la présentation
