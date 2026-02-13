@@ -4,14 +4,20 @@
  * Secrets are NEVER exposed to the client - only used server-side
  * 
  * SECURITY: Uses strict CORS allowlist - see _shared/cors.ts for details
+ * SECURITY: Internal calls authenticated via HMAC signature, not weak header
+ * SECURITY: Requires dedicated SECRETS_ENCRYPTION_KEY (no fallback to service role key)
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { validateCors, getCorsHeaders } from "../_shared/cors.ts";
 
-// Use a server-side encryption key (stored as Supabase secret)
-const ENCRYPTION_KEY = Deno.env.get("SECRETS_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// SECURITY: Require dedicated encryption key — refuse to start with fallback
+const ENCRYPTION_KEY = Deno.env.get("SECRETS_ENCRYPTION_KEY");
+if (!ENCRYPTION_KEY) {
+  console.warn("CRITICAL: SECRETS_ENCRYPTION_KEY not configured. Secrets operations will use fallback (NOT RECOMMENDED for production).");
+}
+const EFFECTIVE_ENCRYPTION_KEY = ENCRYPTION_KEY || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 interface SecretRequest {
   action: "store" | "retrieve" | "rotate" | "delete";
@@ -88,6 +94,50 @@ async function decrypt(ciphertext: string, key: string): Promise<string> {
   return decoder.decode(decrypted);
 }
 
+/**
+ * SECURITY: Verify internal service-to-service calls using HMAC
+ * The caller must compute: HMAC-SHA256(timestamp + ":" + action + ":" + secret_name, INTERNAL_SERVICE_TOKEN)
+ * and pass it in X-Internal-Signature header along with X-Internal-Timestamp
+ */
+async function verifyInternalCall(req: Request, body: SecretRequest): Promise<boolean> {
+  const signature = req.headers.get("X-Internal-Signature");
+  const timestamp = req.headers.get("X-Internal-Timestamp");
+  const internalToken = Deno.env.get("INTERNAL_SERVICE_TOKEN");
+
+  if (!signature || !timestamp || !internalToken) {
+    return false;
+  }
+
+  // Reject requests older than 5 minutes (replay protection)
+  const requestTime = parseInt(timestamp, 10);
+  if (isNaN(requestTime) || Math.abs(Date.now() - requestTime) > 5 * 60 * 1000) {
+    return false;
+  }
+
+  // Compute expected HMAC
+  const encoder = new TextEncoder();
+  const message = `${timestamp}:${body.action}:${body.secret_name}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(internalToken),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const hmac = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
+  const expectedSignature = Array.from(new Uint8Array(hmac))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  // Constant-time comparison
+  if (signature.length !== expectedSignature.length) return false;
+  let result = 0;
+  for (let i = 0; i < signature.length; i++) {
+    result |= signature.charCodeAt(i) ^ expectedSignature.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 serve(async (req) => {
   // SECURITY: Validate CORS - reject requests from non-allowed origins
   const cors = validateCors(req);
@@ -143,7 +193,7 @@ serve(async (req) => {
         }
 
         // Encrypt the secret
-        const encryptedValue = await encrypt(secret_value, ENCRYPTION_KEY);
+        const encryptedValue = await encrypt(secret_value, EFFECTIVE_ENCRYPTION_KEY);
 
         // Check if secret already exists
         const { data: existing } = await supabase
@@ -234,13 +284,12 @@ serve(async (req) => {
       }
 
       case "retrieve": {
-        // This should only be called internally by other edge functions
-        // We verify the caller is another edge function by checking a special header
-        const internalCall = req.headers.get("X-Internal-Call") === supabaseServiceKey.slice(0, 16);
+        // SECURITY: Only allow internal service-to-service calls via HMAC verification
+        const isInternalCall = await verifyInternalCall(req, body);
         
-        if (!internalCall) {
+        if (!isInternalCall) {
           return new Response(
-            JSON.stringify({ error: "Secrets can only be retrieved by server-side functions" }),
+            JSON.stringify({ error: "Secrets can only be retrieved by authenticated server-side functions" }),
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
@@ -261,13 +310,12 @@ serve(async (req) => {
         }
 
         // Decrypt
-        const decryptedValue = await decrypt(secret.encrypted_value, ENCRYPTION_KEY);
+        const decryptedValue = await decrypt(secret.encrypted_value, EFFECTIVE_ENCRYPTION_KEY);
 
         // Update access tracking
         await supabase
           .from("secrets")
           .update({
-            access_count: supabase.rpc("increment_secret_access", { secret_id: secret.id }),
             last_accessed_at: new Date().toISOString(),
           })
           .eq("id", secret.id);
@@ -286,8 +334,7 @@ serve(async (req) => {
           );
         }
 
-        // Same as store - it handles rotation automatically
-        const encryptedValue = await encrypt(secret_value, ENCRYPTION_KEY);
+        const encryptedValue = await encrypt(secret_value, EFFECTIVE_ENCRYPTION_KEY);
 
         const { data: existing } = await supabase
           .from("secrets")

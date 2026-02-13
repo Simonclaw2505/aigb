@@ -128,9 +128,20 @@ serve(async (req) => {
       return policy !== "deny";
     });
 
+    // SECURITY: Sanitise action names and descriptions before injecting into LLM prompt
+    // This prevents prompt injection via malicious action names/descriptions
+    const sanitiseForPrompt = (text: string): string => {
+      return text
+        .replace(/[<>{}[\]]/g, "") // Remove brackets that could confuse JSON parsing
+        .replace(/\n/g, " ")       // Flatten newlines
+        .replace(/```/g, "")       // Remove code blocks
+        .replace(/\\/g, "")        // Remove backslashes
+        .slice(0, 200);            // Limit length
+    };
+
     // Build the prompt for LLM
     const actionsDescription = allowedActions.map(a => 
-      `- ${a.name}: ${a.description}\n  Risk: ${a.risk_level}\n  Inputs: ${JSON.stringify(a.input_schema)}`
+      `- ${sanitiseForPrompt(a.name)}: ${sanitiseForPrompt(a.description)}\n  Risk: ${a.risk_level}\n  Inputs: ${JSON.stringify(a.input_schema)}`
     ).join("\n\n");
 
     const systemPrompt = `You are an AI assistant that converts natural language requests into structured execution plans.

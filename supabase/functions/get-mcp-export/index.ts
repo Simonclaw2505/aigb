@@ -2,10 +2,11 @@
  * Get MCP Export Edge Function
  * Returns MCP manifest for a project in JSON or YAML format
  * 
+ * SECURITY: Requires JWT authentication — only project members can access manifests
  * SECURITY: Uses strict CORS allowlist - see _shared/cors.ts for details
  */
 
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 import { validateCors, getCorsHeaders } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -16,6 +17,27 @@ Deno.serve(async (req) => {
   const corsHeaders = cors.headers;
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // SECURITY: Require authentication
+    const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const url = new URL(req.url);
     const projectId = url.searchParams.get("project_id");
     const version = url.searchParams.get("version");
@@ -28,10 +50,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    // SECURITY: Verify user has access to this project
+    const { data: accessResult } = await supabase.rpc("can_access_project", {
+      _user_id: user.id,
+      _project_id: projectId,
+    });
+
+    if (!accessResult) {
+      return new Response(
+        JSON.stringify({ error: "Access denied to project" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     let query = supabase.from("mcp_exports").select("*").eq("project_id", projectId);
     query = version ? query.eq("version", version) : query.eq("is_latest", true);
@@ -61,6 +91,7 @@ Deno.serve(async (req) => {
       },
     });
   } catch (err) {
+    console.error("Error:", err);
     const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
