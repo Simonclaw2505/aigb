@@ -68,14 +68,14 @@ export default function Auth() {
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <Zap className="w-6 h-6 text-primary-foreground" />
           </div>
-          <span className="text-2xl font-semibold text-foreground">MCP Foundry</span>
+          <span className="text-2xl font-semibold text-foreground">AIGB</span>
         </div>
 
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-xl">Welcome</CardTitle>
             <CardDescription>
-              Convert your APIs into agent-friendly MCP toolsets
+              Convert your APIs into governed, agent-friendly toolsets
             </CardDescription>
           </CardHeader>
           <CardContent>

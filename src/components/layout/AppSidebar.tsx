@@ -101,7 +101,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <span className="font-semibold text-sidebar-accent-foreground text-sm">
-              MCP Foundry
+              AIGB
             </span>
           )}
         </div>
