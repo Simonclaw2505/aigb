@@ -1,77 +1,121 @@
 
 
-# Option A : Fusionner Agent Capabilities dans les Actions et supprimer l'onglet
+# Gestion des utilisateurs, roles par agent et permissions par role
 
-## Objectif
+## Constat actuel
 
-Centraliser toute la configuration de securite agent (politique, quotas, environnements) dans le formulaire d'action (`ActionBuilderForm`), et retirer l'onglet "Agent Capabilities" de la page Permissions.
+Aujourd'hui, les utilisateurs n'ont qu'un role global au niveau de l'organisation (owner/admin/member/viewer via `organization_members`). Il n'y a pas de moyen de :
+- Voir/gerer les membres de l'equipe
+- Assigner un utilisateur a un agent specifique
+- Donner un role different selon l'agent
+- Definir quelles actions un role peut executer sur un agent donne
 
-## Etapes
+## Approche UX proposee
 
-### 1. Migration SQL - Ajouter les colonnes a `action_templates`
+Le flux intuitif en 3 niveaux :
 
-Ajouter 5 colonnes a la table `action_templates` :
-- `max_executions_per_hour` (integer, nullable)
-- `max_executions_per_day` (integer, nullable)
-- `allowed_environments` (text array, default `{development,staging,production}`)
-- `agent_policy` (utilise le type enum `agent_capability_policy` existant, default `allow`)
-- `approval_roles` (app_role array, default `{owner,admin}`)
+1. **Page "Team"** (nouvelle) : gerer les membres de l'organisation (inviter, voir, changer le role org)
+2. **Page Agents** : sur chaque agent, assigner des membres avec un role specifique a cet agent
+3. **Page Permissions** : definir quelles actions chaque role peut executer (scope par agent)
 
-### 2. `ActionBuilderForm.tsx` - Ajouter les champs dans l'onglet Constraints
+### Flux utilisateur concret
 
-Mettre a jour `ActionFormData` :
 ```text
-agentPolicy: 'allow' | 'deny' | 'require_confirmation' | 'require_approval'
-approvalRoles: string[]
-maxExecutionsPerHour?: number
-maxExecutionsPerDay?: number
-allowedEnvironments: string[]
+Settings > Team
+  -> Voir tous les membres de l'orga
+  -> Inviter un nouveau membre par email
+  -> Changer son role org (owner/admin/member/viewer)
+
+Agents > [Mon Agent] > Menu "Gerer les membres"
+  -> Voir qui a acces a cet agent
+  -> Ajouter un membre de l'orga a l'agent
+  -> Lui donner un role specifique pour cet agent (admin/operator/viewer)
+
+Permissions > User Permissions
+  -> Les regles RBAC/ABAC existantes, mais scopees par agent
+  -> "Le role operator peut executer les actions read_only sur cet agent"
 ```
 
-Ajouter 3 cartes dans l'onglet Constraints :
+## Modifications techniques
 
-- **Agent Policy** : selecteur Allow/Deny/Require Confirmation/Require Approval, avec checkboxes des roles d'approbation quand policy = require_approval
-- **Execution Quotas** : champs Max Executions/Hour et Max Executions/Day
-- **Allowed Environments** : checkboxes Development, Staging, Production
+### 1. Migration SQL - Nouvelles tables
 
-### 3. `Actions.tsx` - Mapper les nouveaux champs
+**Table `agent_members`** : lie un utilisateur a un agent avec un role specifique
 
-- Dans `ActionTemplate` interface : ajouter les 5 nouveaux champs
-- Dans `handleSaveAction` : inclure `agent_policy`, `approval_roles`, `max_executions_per_hour`, `max_executions_per_day`, `allowed_environments`
-- Dans `createFormDataFromAction` : lire ces champs depuis l'action existante
-- Dans `createFormDataFromEndpoint` : valeurs par defaut (allow, pas de limite, tous les environnements)
-- Dans `handleAutoGenerateAll` et `handleDuplicateAction` : inclure les nouveaux champs
+| Colonne | Type | Description |
+|---------|------|-------------|
+| id | uuid | PK |
+| agent_id | uuid | FK vers projects |
+| user_id | uuid | FK vers auth.users |
+| role | app_role | Role de l'utilisateur sur cet agent |
+| created_at | timestamptz | Date d'ajout |
+| created_by | uuid | Qui a ajoute ce membre |
 
-### 4. `Permissions.tsx` - Retirer l'onglet Agent Capabilities
+Contrainte unique sur (agent_id, user_id).
 
-- Supprimer l'import de `AgentCapabilitiesPanel` et de `Bot`
-- Supprimer le fetch des `actionTemplates` (plus necessaire)
-- Supprimer l'onglet "Agent Capabilities" et son contenu
-- Ne garder que 2 onglets : "User Permissions" et "Audit Logs"
-- Tab par defaut : `user` au lieu de `agent`
-- Adapter le badge compteur et la description
+Politiques RLS :
+- Les admins/owners de l'org peuvent gerer les membres d'agent
+- Les membres de l'org peuvent voir les membres d'agent
 
-### 5. `evaluate-permission/index.ts` - Lire depuis `action_templates`
+**Fonction `get_agent_role`** : retourne le role d'un utilisateur sur un agent donne (utile pour les RLS et le moteur de permissions).
 
-Remplacer la lecture depuis `agent_capabilities` par une lecture directe depuis `action_templates` :
-- Charger `agent_policy`, `approval_roles`, `max_executions_per_hour`, `max_executions_per_day`, `allowed_environments` depuis `action_templates`
-- Appliquer la meme logique de deny/confirm/approve/rate-limit
-- Logger dans `permission_evaluations` comme avant
+### 2. Page Team dans Settings
 
-## Detail technique
+Ajouter un onglet **"Team"** dans `Settings.tsx` :
 
-### Fichiers modifies
+- Liste des membres de l'organisation avec leur email, nom, role org, date d'ajout
+- Bouton "Inviter" qui ouvre un dialog avec : champ email + selecteur de role
+- L'invitation cree un enregistrement `organization_members` (l'utilisateur doit avoir un compte)
+- Actions : modifier le role, retirer de l'organisation
+
+### 3. Dialog "Gerer les membres" sur les Agents
+
+Ajouter dans le menu contextuel de chaque agent (a cote de "Gerer les outils") une option **"Gerer les membres"**.
+
+Le dialog `ManageAgentMembersDialog` :
+- Liste les membres actuels de l'agent avec leur role
+- Selecteur pour ajouter un membre de l'org (combo avec les membres pas encore assignes)
+- Selecteur de role par agent (admin / operator / viewer)
+- Bouton supprimer pour retirer un membre
+
+### 4. Mise a jour de la page Permissions
+
+Modifier `UserPermissionsPanel` pour :
+- Ajouter un champ optionnel "Agent" (scope) dans le formulaire de creation de regle
+- Permettre de dire "Ce role sur cet agent peut executer ces actions"
+- Afficher la colonne "Agent" dans le tableau des regles
+
+Cela reutilise la table `user_permission_rules` existante en ajoutant une colonne optionnelle `agent_id` pour scoper les regles.
+
+### 5. Integration dans evaluate-permission
+
+Modifier la edge function pour :
+- Verifier si l'utilisateur est membre de l'agent concerne
+- Utiliser le role agent (pas le role org) pour evaluer les regles scopees par agent
+- Fallback sur le role org si pas de role agent specifique
+
+## Fichiers modifies
 
 | Fichier | Modification |
 |---------|-------------|
-| Migration SQL | 5 nouvelles colonnes sur `action_templates` |
-| `src/components/actions/ActionBuilderForm.tsx` | Extension de `ActionFormData` + 3 cartes Agent Policy, Quotas, Environments dans l'onglet Constraints |
-| `src/pages/Actions.tsx` | Mapper les 5 nouveaux champs dans save/load/auto-generate/duplicate |
-| `src/pages/Permissions.tsx` | Retirer l'onglet Agent Capabilities, garder User Permissions + Audit Logs |
-| `supabase/functions/evaluate-permission/index.ts` | Lire politique et quotas depuis `action_templates` au lieu de `agent_capabilities` |
+| Migration SQL | Table `agent_members`, fonction `get_agent_role`, colonne `agent_id` sur `user_permission_rules` |
+| `src/pages/Settings.tsx` | Nouvel onglet "Team" avec liste des membres et invitation |
+| `src/components/settings/TeamPanel.tsx` | Nouveau composant : liste, invite, gestion des membres org |
+| `src/pages/Projects.tsx` | Option "Gerer les membres" dans le menu contextuel des agents |
+| `src/components/agents/ManageAgentMembersDialog.tsx` | Nouveau composant : assigner des membres a un agent avec un role |
+| `src/components/permissions/UserPermissionsPanel.tsx` | Ajout du champ "Agent" (optionnel) dans le formulaire de regle |
+| `src/components/layout/AppSidebar.tsx` | Pas de changement (Team est dans Settings) |
+| `supabase/functions/evaluate-permission/index.ts` | Prendre en compte le role agent et les regles scopees |
 
-### Fichiers non supprimes (mais plus utilises par Permissions.tsx)
+## Recapitulatif du modele de donnees
 
-- `src/components/permissions/AgentCapabilitiesPanel.tsx` : ne sera plus importe par Permissions.tsx mais reste dans le code (peut etre supprime plus tard si on veut)
-- `src/hooks/usePermissions.ts` : le hook `useAgentCapabilities` ne sera plus utilise par la page Permissions mais reste disponible
+```text
+Organization
+  └── Members (role org: owner/admin/member/viewer)
+       └── Agents
+            ├── Tools (outils lies)
+            ├── Actions (avec politique, quotas, environnements)
+            └── Agent Members (role par agent: admin/operator/viewer)
+                 └── Permissions (regles RBAC/ABAC scopees par agent + role)
+```
 
