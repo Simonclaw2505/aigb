@@ -96,7 +96,7 @@ export default function Landing() {
           </h1>
           <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">
             Gardez le contrôle sur vos agents IA. Dans un monde où l'IA est et sera omniprésente,
-            AIGB garantit la sécurité des entreprises et des particuliers, de leurs données et de leurs transactions.
+            AIGB optimise la bonne gouvernance de vos agents, et améliore la sécurité et la traçabilité de vos données.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
