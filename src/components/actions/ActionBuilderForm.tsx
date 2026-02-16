@@ -2,9 +2,9 @@
  * Action Builder Form Component
  * Comprehensive form for creating/editing agent-friendly actions
  */
-
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -103,6 +103,41 @@ export function ActionBuilderForm({
   const [formData, setFormData] = useState<ActionFormData>(initialData);
   const [activeTab, setActiveTab] = useState("basic");
 
+  // Intermediate text states for JSON fields
+  const [inputSchemaText, setInputSchemaText] = useState(() =>
+    JSON.stringify(initialData.inputSchema, null, 2)
+  );
+  const [inputSchemaError, setInputSchemaError] = useState<string | null>(null);
+
+  const [outputSchemaText, setOutputSchemaText] = useState(() =>
+    initialData.outputSchema ? JSON.stringify(initialData.outputSchema, null, 2) : ""
+  );
+  const [outputSchemaError, setOutputSchemaError] = useState<string | null>(null);
+
+  const [exampleParamsTexts, setExampleParamsTexts] = useState<Record<number, string>>(() => {
+    const map: Record<number, string> = {};
+    initialData.examples.forEach((ex, i) => {
+      map[i] = JSON.stringify(ex.expectedParams, null, 2);
+    });
+    return map;
+  });
+  const [exampleParamsErrors, setExampleParamsErrors] = useState<Record<number, string | null>>({});
+
+  // Sync text states when formData changes externally (e.g. apply suggestion, reset)
+  const [lastSyncKey, setLastSyncKey] = useState(0);
+  const syncTextsFromFormData = useCallback((data: ActionFormData) => {
+    setInputSchemaText(JSON.stringify(data.inputSchema, null, 2));
+    setInputSchemaError(null);
+    setOutputSchemaText(data.outputSchema ? JSON.stringify(data.outputSchema, null, 2) : "");
+    setOutputSchemaError(null);
+    const map: Record<number, string> = {};
+    data.examples.forEach((ex, i) => {
+      map[i] = JSON.stringify(ex.expectedParams, null, 2);
+    });
+    setExampleParamsTexts(map);
+    setExampleParamsErrors({});
+  }, []);
+
   // Update a single field
   const updateField = <K extends keyof ActionFormData>(
     field: K,
@@ -122,20 +157,44 @@ export function ActionBuilderForm({
   const applyAllSuggestions = () => {
     if (suggestion) {
       setFormData(suggestion);
+      syncTextsFromFormData(suggestion);
     }
   };
 
   // Reset to initial data
   const resetForm = () => {
     setFormData(initialData);
+    syncTextsFromFormData(initialData);
+  };
+
+  // Apply suggestion to a single field - also sync text if it's a JSON field
+  const applySuggestionAndSync = (field: keyof ActionFormData) => {
+    if (suggestion && suggestion[field] !== undefined) {
+      updateField(field, suggestion[field]);
+      if (field === "inputSchema") {
+        setInputSchemaText(JSON.stringify(suggestion.inputSchema, null, 2));
+        setInputSchemaError(null);
+      } else if (field === "outputSchema") {
+        setOutputSchemaText(suggestion.outputSchema ? JSON.stringify(suggestion.outputSchema, null, 2) : "");
+        setOutputSchemaError(null);
+      } else if (field === "examples") {
+        const map: Record<number, string> = {};
+        suggestion.examples.forEach((ex, i) => {
+          map[i] = JSON.stringify(ex.expectedParams, null, 2);
+        });
+        setExampleParamsTexts(map);
+        setExampleParamsErrors({});
+      }
+    }
   };
 
   // Add example
   const addExample = () => {
-    setFormData((prev) => ({
-      ...prev,
-      examples: [...prev.examples, { prompt: "", expectedParams: {} }],
-    }));
+    setFormData((prev) => {
+      const newExamples = [...prev.examples, { prompt: "", expectedParams: {} }];
+      return { ...prev, examples: newExamples };
+    });
+    setExampleParamsTexts((prev) => ({ ...prev, [formData.examples.length]: "{}" }));
   };
 
   // Update example
@@ -366,18 +425,23 @@ export function ActionBuilderForm({
           <div className="space-y-2">
             <Label>Input Schema (JSON Schema)</Label>
             <Textarea
-              value={JSON.stringify(formData.inputSchema, null, 2)}
-              onChange={(e) => {
+              value={inputSchemaText}
+              onChange={(e) => setInputSchemaText(e.target.value)}
+              onBlur={() => {
                 try {
-                  updateField("inputSchema", JSON.parse(e.target.value));
+                  updateField("inputSchema", JSON.parse(inputSchemaText));
+                  setInputSchemaError(null);
                 } catch {
-                  // Invalid JSON, ignore
+                  setInputSchemaError("JSON invalide");
                 }
               }}
               rows={12}
-              className="font-mono text-sm"
+              className={`font-mono text-sm ${inputSchemaError ? "border-destructive" : ""}`}
               placeholder='{"type": "object", "properties": {...}}'
             />
+            {inputSchemaError && (
+              <p className="text-xs text-destructive">{inputSchemaError}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               JSON Schema defining the input parameters for this action
             </p>
@@ -386,18 +450,23 @@ export function ActionBuilderForm({
           <div className="space-y-2">
             <Label>Output Schema (JSON Schema)</Label>
             <Textarea
-              value={formData.outputSchema ? JSON.stringify(formData.outputSchema, null, 2) : ""}
-              onChange={(e) => {
+              value={outputSchemaText}
+              onChange={(e) => setOutputSchemaText(e.target.value)}
+              onBlur={() => {
                 try {
-                  updateField("outputSchema", e.target.value ? JSON.parse(e.target.value) : null);
+                  updateField("outputSchema", outputSchemaText.trim() ? JSON.parse(outputSchemaText) : null);
+                  setOutputSchemaError(null);
                 } catch {
-                  // Invalid JSON, ignore
+                  setOutputSchemaError("JSON invalide");
                 }
               }}
               rows={8}
-              className="font-mono text-sm"
+              className={`font-mono text-sm ${outputSchemaError ? "border-destructive" : ""}`}
               placeholder='{"type": "object", "properties": {...}}'
             />
+            {outputSchemaError && (
+              <p className="text-xs text-destructive">{outputSchemaError}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               Optional schema describing the expected response structure
             </p>
@@ -417,7 +486,7 @@ export function ActionBuilderForm({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => applySuggestion("examples")}
+                onClick={() => applySuggestionAndSync("examples")}
               >
                 <Wand2 className="h-4 w-4 mr-2" />
                 Use Suggestions
@@ -449,18 +518,26 @@ export function ActionBuilderForm({
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Expected Parameters (JSON)</Label>
-                    <Input
-                      value={JSON.stringify(example.expectedParams)}
-                      onChange={(e) => {
+                    <Textarea
+                      value={exampleParamsTexts[index] ?? JSON.stringify(example.expectedParams, null, 2)}
+                      onChange={(e) => setExampleParamsTexts((prev) => ({ ...prev, [index]: e.target.value }))}
+                      onBlur={() => {
+                        const text = exampleParamsTexts[index];
+                        if (text === undefined) return;
                         try {
-                          updateExample(index, "expectedParams", JSON.parse(e.target.value));
+                          updateExample(index, "expectedParams", JSON.parse(text));
+                          setExampleParamsErrors((prev) => ({ ...prev, [index]: null }));
                         } catch {
-                          // Invalid JSON
+                          setExampleParamsErrors((prev) => ({ ...prev, [index]: "JSON invalide" }));
                         }
                       }}
-                      className="font-mono text-sm"
+                      rows={4}
+                      className={`font-mono text-sm ${exampleParamsErrors[index] ? "border-destructive" : ""}`}
                       placeholder='{"id": "123"}'
                     />
+                    {exampleParamsErrors[index] && (
+                      <p className="text-xs text-destructive">{exampleParamsErrors[index]}</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -632,7 +709,43 @@ export function ActionBuilderForm({
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={() => onSave(formData)} disabled={isLoading}>
+          <Button
+            onClick={() => {
+              // Validate all JSON fields before saving
+              let hasError = false;
+              try {
+                JSON.parse(inputSchemaText);
+              } catch {
+                setInputSchemaError("JSON invalide");
+                setActiveTab("schema");
+                hasError = true;
+              }
+              if (outputSchemaText.trim()) {
+                try {
+                  JSON.parse(outputSchemaText);
+                } catch {
+                  setOutputSchemaError("JSON invalide");
+                  if (!hasError) setActiveTab("schema");
+                  hasError = true;
+                }
+              }
+              for (const [idx, text] of Object.entries(exampleParamsTexts)) {
+                try {
+                  JSON.parse(text);
+                } catch {
+                  setExampleParamsErrors((prev) => ({ ...prev, [Number(idx)]: "JSON invalide" }));
+                  if (!hasError) setActiveTab("examples");
+                  hasError = true;
+                }
+              }
+              if (hasError) {
+                toast({ title: "JSON invalide", description: "Corrigez les champs JSON en erreur avant de sauvegarder.", variant: "destructive" });
+                return;
+              }
+              onSave(formData);
+            }}
+            disabled={isLoading}
+          >
             <Save className="h-4 w-4 mr-2" />
             {isLoading ? "Saving..." : "Save Action"}
           </Button>
