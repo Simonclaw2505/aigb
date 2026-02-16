@@ -1,76 +1,106 @@
 
 
-# Mise a jour SendGrid + Historique des tests
+# Lier les Agents aux Outils (bidirectionnel)
 
-## 1. Mise a jour des endpoints SendGrid
+## Objectif
 
-Remplacer les 5 endpoints actuels par la liste complete fournie (environ 40 endpoints) dans la table `tool_library`, organises par categorie :
+Permettre de gerer les liens agent-outil depuis les deux pages : voir et ajouter/retirer des outils depuis un agent, et voir et ajouter/retirer des agents depuis un outil.
 
-- **Mail Send** : POST /mail/send, GET /user/scheduled_sends, DELETE /user/scheduled_sends/{batch_id}
-- **Marketing Listes** : GET/POST /marketing/lists, GET/DELETE/PATCH /marketing/lists/{list_id}
-- **Marketing Contacts** : PUT/GET/DELETE /marketing/contacts, POST /marketing/lists/{list_id}/contacts
-- **Campaigns (Single Sends)** : CRUD sur /marketing/singlesends + schedule + send
-- **Templates** : CRUD sur /templates + versions
-- **Stats** : /stats, /stats/global, /stats/mailbox_providers, /stats/devices
-- **Email Activity** : GET /messages, GET /messages/{msg_id}
-- **Domain & Sender Auth** : /whitelabel/domains, /verified_senders
-- **Tracking Settings** : click, open, subscription
-- **Webhooks** : /user/webhooks/event/settings
+## Aucune migration necessaire
 
-Tous les paths seront prefixes avec `/v3` (convention SendGrid).
+La table `agent_tools` (agent_id, api_source_id) existe deja avec les bonnes politiques de securite.
 
-Execution via une requete SQL `UPDATE` sur la ligne existante.
+---
 
-## 2. Historique des tests de connexion
+## Page Agents (`Projects.tsx`)
 
-Actuellement, le composant `ManualApiConfig` n'affiche qu'un seul resultat de test a la fois et ne conserve pas l'historique. Le probleme est particulierement genant pour les POST : on ne voit pas si l'appel a reellement fonctionne.
+### Afficher les outils lies sur chaque carte
 
-### Changements dans `ManualApiConfig.tsx`
+- Sous le badge de statut et la date, ajouter une ligne avec les noms des outils lies (petits badges cliquables)
+- Si aucun outil lie, afficher "Aucun outil"
+- Charger les liens via `agent_tools` avec jointure sur `api_sources` pour chaque agent
 
-- Remplacer `testResult: TestResult | null` par `testHistory: TestHistoryEntry[]` (un tableau)
-- Chaque entree contient : timestamp, methode, path, resultat (status, body, erreur), duree
-- A chaque test, ajouter l'entree en debut de tableau (les plus recents en haut)
-- Afficher le panneau d'historique sous forme de liste deroulante (Collapsible ou ScrollArea)
-- Chaque entree affiche :
-  - Heure + methode + path
-  - Badge succes/echec avec le status code
-  - Le body de la reponse dans un bloc `<pre>` repliable
-- Bouton "Effacer l'historique" pour repartir a zero
+### Bouton "Gerer les outils" sur chaque carte
 
-### Structure de donnees
+- Ajouter une icone Wrench dans le menu dropdown (trois points) de chaque agent
+- Au clic, ouvrir un **Dialog** "Outils de [nom agent]" contenant :
+  - La liste des outils deja lies avec un bouton X pour retirer
+  - Un select/combobox pour ajouter un outil parmi ceux de l'organisation non encore lies
+  - Bouton "Ajouter" pour inserer dans `agent_tools`
 
-```text
-TestHistoryEntry {
-  id: string
-  timestamp: Date
-  method: string
-  path: string
-  success: boolean
-  status?: number
-  statusText?: string
-  body?: unknown
-  error?: string
-  durationMs: number
-}
-```
+### Chargement des donnees
 
-### Interface utilisateur
+- Apres le fetch des projets, faire un second fetch pour recuperer tous les `agent_tools` de l'organisation avec les noms des `api_sources`
+- Stocker dans un state `agentToolsMap: Record<agentId, Tool[]>`
 
-Le panneau d'historique sera affiche dans une Card dediee sous le bouton "Tester la connexion", avec :
-- Titre "Historique des tests" + compteur
-- Liste scrollable (max ~300px de hauteur)
-- Chaque entree : badge methode colore + path + status + bouton pour voir la reponse
-- Pour les POST/PUT/DELETE : indication claire "Action effectuee" ou "Echec" avec le detail de la reponse du serveur
+---
+
+## Page Outils (`Tools.tsx`)
+
+### Badge "X agents" cliquable
+
+- Le badge existant `{tool.agent_count} agents` devient un bouton
+- Au clic, ouvrir un **Popover** ou **Dialog** affichant :
+  - La liste des agents lies (noms) avec un bouton X pour delier
+  - Un select pour ajouter un agent parmi ceux de l'organisation non encore lies
+  - Bouton "Ajouter" pour inserer dans `agent_tools`
+
+### Chargement des noms d'agents
+
+- Enrichir le fetch existant dans `fetchTools` pour recuperer aussi les noms des agents lies via `agent_tools` + jointure `projects`
+
+---
 
 ## Fichiers modifies
 
 | Fichier | Modification |
 |---------|-------------|
-| Base de donnees (SQL) | UPDATE tool_library SET endpoints = [...] WHERE slug = 'sendgrid' |
-| `src/components/import/ManualApiConfig.tsx` | Remplacement du state testResult par testHistory, ajout du panneau d'historique |
+| `src/pages/Projects.tsx` | Fetch agent_tools, afficher outils lies sur les cartes, dialog de gestion des outils par agent |
+| `src/pages/Tools.tsx` | Badge agents cliquable, dialog/popover de gestion des agents par outil, enrichir fetchTools |
 
 ## Details techniques
 
-- L'edge function `test-api-connection` ne change pas : elle retourne deja le body, le status et les headers. Le front-end ne les exploitait simplement pas assez.
-- La mesure de duree sera faite cote client (avant/apres l'appel a la fonction).
-- L'historique est en memoire uniquement (pas persiste en base), il se reinitialise a chaque rechargement de page.
+### Requetes cles
+
+Charger les outils d'un agent :
+```text
+supabase
+  .from("agent_tools")
+  .select("api_source_id, api_sources(id, name)")
+  .eq("agent_id", agentId)
+```
+
+Charger les agents d'un outil :
+```text
+supabase
+  .from("agent_tools")
+  .select("agent_id, projects:agent_id(id, name)")
+  .eq("api_source_id", toolId)
+```
+
+Ajouter un lien :
+```text
+supabase.from("agent_tools").insert({ agent_id, api_source_id })
+```
+
+Retirer un lien :
+```text
+supabase.from("agent_tools").delete()
+  .eq("agent_id", agentId)
+  .eq("api_source_id", toolId)
+```
+
+### Flux utilisateur
+
+```text
+Depuis /agents :
+  1. L'utilisateur voit les outils lies sur chaque carte agent
+  2. Menu "..." > "Gerer les outils" ouvre un dialog
+  3. Il peut retirer un outil (bouton X) ou en ajouter (select + bouton)
+
+Depuis /tools :
+  1. L'utilisateur voit le badge "2 agents" sur chaque carte outil
+  2. Clic sur le badge ouvre un dialog
+  3. Il peut retirer un agent (bouton X) ou en ajouter (select + bouton)
+```
+
