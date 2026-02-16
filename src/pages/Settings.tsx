@@ -13,9 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Building, User, Key, Trash2, Plug, Loader2 } from "lucide-react";
+import { Building, User, Key, Trash2, Plug, Loader2, Users } from "lucide-react";
 import { ConnectorsPanel } from "@/components/connectors/ConnectorsPanel";
 import { AgentApiKeysPanel } from "@/components/settings/AgentApiKeysPanel";
+import { TeamPanel } from "@/components/settings/TeamPanel";
 
 interface Project {
   id: string;
@@ -84,6 +85,10 @@ export default function Settings() {
           <TabsTrigger value="api-keys" className="gap-2">
             <Key className="h-4 w-4" />
             API Keys
+          </TabsTrigger>
+          <TabsTrigger value="team" className="gap-2">
+            <Users className="h-4 w-4" />
+            Team
           </TabsTrigger>
         </TabsList>
 
@@ -227,6 +232,21 @@ export default function Settings() {
             organizationId={selectedProject?.organization_id || null}
             projects={projects}
           />
+        </TabsContent>
+
+        <TabsContent value="team" className="mt-6">
+          <div className="max-w-4xl">
+            {selectedProject ? (
+              <TeamPanel organizationId={selectedProject.organization_id} />
+            ) : (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">Sélectionnez un projet pour gérer l'équipe</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </DashboardLayout>

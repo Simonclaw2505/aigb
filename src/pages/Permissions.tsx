@@ -1,9 +1,9 @@
 /**
  * Permissions page for MCP Foundry
- * Two-layer permissions: Agent capabilities + User RBAC/ABAC
+ * User RBAC/ABAC with agent scoping
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,10 +12,14 @@ import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { ProjectBanner } from "@/components/layout/ProjectBanner";
 import { UserPermissionsPanel } from "@/components/permissions/UserPermissionsPanel";
 import { PermissionEvaluationLogs } from "@/components/permissions/PermissionEvaluationLogs";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Permissions() {
-  const { currentProject, isLoading: projectLoading } = useCurrentProject();
+  const { currentProject, projects, isLoading: projectLoading } = useCurrentProject();
   const [activeTab, setActiveTab] = useState("user");
+
+  // Build agents list from projects for the scope selector
+  const agents = projects.map((p) => ({ id: p.id, name: p.name }));
 
   if (projectLoading) {
     return (
@@ -52,10 +56,8 @@ export default function Permissions() {
                       <div>
                         <p className="text-sm font-medium">User Permission Layer</p>
                         <p className="text-sm text-muted-foreground">
-                          Configure role-based access control (RBAC) and attribute-based rules (ABAC). 
-                          Define which roles can perform which actions, with optional conditions like 
-                          <code className="mx-1 px-1 py-0.5 bg-muted rounded text-xs">region == user.region</code> or 
-                          <code className="mx-1 px-1 py-0.5 bg-muted rounded text-xs">amount &lt;= 10000</code>.
+                          Configure role-based access control (RBAC) and attribute-based rules (ABAC).
+                          Rules can be scoped to a specific agent for fine-grained control.
                         </p>
                       </div>
                     </div>
@@ -63,7 +65,10 @@ export default function Permissions() {
                 </Card>
 
                 {currentProject && (
-                  <UserPermissionsPanel organizationId={currentProject.organization_id} />
+                  <UserPermissionsPanel
+                    organizationId={currentProject.organization_id}
+                    agents={agents}
+                  />
                 )}
               </div>
             </TabsContent>
@@ -77,8 +82,7 @@ export default function Permissions() {
                       <div>
                         <p className="text-sm font-medium">Permission Audit Trail</p>
                         <p className="text-sm text-muted-foreground">
-                          Every permission evaluation is logged for compliance and debugging. 
-                          See which rules matched, whether confirmation or approval was required, and the final decision.
+                          Every permission evaluation is logged for compliance and debugging.
                         </p>
                       </div>
                     </div>

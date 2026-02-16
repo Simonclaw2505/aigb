@@ -26,11 +26,17 @@ const allRoles: AppRole[] = ["owner", "admin", "member", "viewer"];
 const resourceTypes = ["action", "project", "endpoint", "api_source", "export"];
 const actions = ["execute", "read", "write", "delete", "export", "manage"];
 
-interface UserPermissionsPanelProps {
-  organizationId: string;
+interface AgentOption {
+  id: string;
+  name: string;
 }
 
-export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelProps) {
+interface UserPermissionsPanelProps {
+  organizationId: string;
+  agents?: AgentOption[];
+}
+
+export function UserPermissionsPanel({ organizationId, agents = [] }: UserPermissionsPanelProps) {
   const { rules, loading, createRule, updateRule, deleteRule } = useUserPermissionRules(organizationId);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<UserPermissionRule | null>(null);
@@ -46,6 +52,7 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
     conditions: "{}",
     priority: 0,
     is_active: true,
+    agent_id: "" as string,
   });
 
   const resetForm = () => {
@@ -59,6 +66,7 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
       conditions: "{}",
       priority: 0,
       is_active: true,
+      agent_id: "",
     });
     setEditingRule(null);
   };
@@ -75,6 +83,7 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
       conditions: JSON.stringify(rule.conditions, null, 2),
       priority: rule.priority,
       is_active: rule.is_active,
+      agent_id: (rule as any).agent_id || "",
     });
     setIsDialogOpen(true);
   };
@@ -99,6 +108,7 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
           conditions: parsedConditions,
           priority: formData.priority,
           is_active: formData.is_active,
+          agent_id: formData.agent_id || null,
         });
       } else {
         await createRule({
@@ -114,6 +124,7 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
           conditions: parsedConditions,
           priority: formData.priority,
           is_active: formData.is_active,
+          agent_id: formData.agent_id || null,
         });
       }
       setIsDialogOpen(false);
@@ -280,6 +291,31 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
                   </div>
                 </div>
 
+                {agents.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Agent (scope)</Label>
+                    <Select
+                      value={formData.agent_id || "all"}
+                      onValueChange={(v) => setFormData(prev => ({ ...prev, agent_id: v === "all" ? "" : v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tous les agents" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous les agents</SelectItem>
+                        {agents.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            {agent.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Optionnel : restreindre cette règle à un agent spécifique
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Filter className="h-4 w-4" />
@@ -399,6 +435,7 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
                   <TableRow>
                     <TableHead>Rule</TableHead>
                     <TableHead>Subject</TableHead>
+                    <TableHead>Agent</TableHead>
                     <TableHead>Resource</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Effect</TableHead>
@@ -423,6 +460,15 @@ export function UserPermissionsPanel({ organizationId }: UserPermissionsPanelPro
                         <Badge variant="outline" className="capitalize">
                           {rule.subject_role || "All"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {(rule as any).agent_id ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {agents.find(a => a.id === (rule as any).agent_id)?.name || "Agent"}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Tous</span>
+                        )}
                       </TableCell>
                       <TableCell className="capitalize">{rule.resource_type}</TableCell>
                       <TableCell className="capitalize">{rule.action}</TableCell>
