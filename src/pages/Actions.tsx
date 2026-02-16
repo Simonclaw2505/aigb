@@ -45,7 +45,10 @@ import {
   Loader2,
   FolderOpen,
   AlertCircle,
+  Wrench,
+  Link as LinkIcon,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Endpoint {
@@ -62,6 +65,13 @@ interface Endpoint {
   request_body_schema: any;
   response_schemas: any;
   tags: string[];
+  sourceName?: string;
+  sourceId?: string;
+}
+
+interface LinkedTool {
+  id: string;
+  name: string;
 }
 
 interface ActionTemplate {
@@ -84,13 +94,16 @@ interface ActionTemplate {
 
 export default function Actions() {
   const { currentProject, isLoading: projectLoading, needsOnboarding } = useCurrentProject();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("endpoints");
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [actions, setActions] = useState<ActionTemplate[]>([]);
+  const [linkedTools, setLinkedTools] = useState<LinkedTool[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [hasNoLinkedTools, setHasNoLinkedTools] = useState(false);
 
   // Dialog state
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
@@ -109,22 +122,49 @@ export default function Actions() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch endpoints filtered by current project
-      const { data: endpointsData, error: endpointsError } = await supabase
-        .from("endpoints")
-        .select("*, api_sources!inner(project_id)")
-        .eq("api_sources.project_id", currentProject!.id)
-        .order("created_at", { ascending: false });
+      // Step 1: Get linked tools via agent_tools
+      const { data: agentToolsData, error: toolsError } = await supabase
+        .from("agent_tools")
+        .select("api_source_id, api_sources(id, name)")
+        .eq("agent_id", currentProject!.id);
 
-      if (endpointsError) throw endpointsError;
-      // Cast to our local type
-      setEndpoints((endpointsData || []).map((ep: any) => ({
-        ...ep,
-        path_parameters: ep.path_parameters || [],
-        query_parameters: ep.query_parameters || [],
-        header_parameters: ep.header_parameters || [],
-        tags: ep.tags || [],
-      })));
+      if (toolsError) throw toolsError;
+
+      const tools: LinkedTool[] = (agentToolsData || []).map((t: any) => ({
+        id: t.api_source_id,
+        name: t.api_sources?.name || "Unknown",
+      }));
+      setLinkedTools(tools);
+
+      const sourceIds = tools.map((t) => t.id);
+      setHasNoLinkedTools(sourceIds.length === 0);
+
+      // Step 2: Fetch endpoints for linked tools only
+      let endpointsList: Endpoint[] = [];
+      if (sourceIds.length > 0) {
+        const { data: endpointsData, error: endpointsError } = await supabase
+          .from("endpoints")
+          .select("*")
+          .in("api_source_id", sourceIds)
+          .order("created_at", { ascending: false });
+
+        if (endpointsError) throw endpointsError;
+
+        // Build a sourceId->name map
+        const sourceNameMap: Record<string, string> = {};
+        tools.forEach((t) => { sourceNameMap[t.id] = t.name; });
+
+        endpointsList = (endpointsData || []).map((ep: any) => ({
+          ...ep,
+          path_parameters: ep.path_parameters || [],
+          query_parameters: ep.query_parameters || [],
+          header_parameters: ep.header_parameters || [],
+          tags: ep.tags || [],
+          sourceName: sourceNameMap[ep.api_source_id] || "Unknown",
+          sourceId: ep.api_source_id,
+        }));
+      }
+      setEndpoints(endpointsList);
 
       // Fetch actions filtered by current project
       const { data: actionsData, error: actionsError } = await supabase
@@ -583,64 +623,93 @@ export default function Actions() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Endpoints Tab */}
           <TabsContent value="endpoints" className="mt-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
+            ) : hasNoLinkedTools ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <LinkIcon className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">Aucun outil lié à cet agent</h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
+                    Liez des outils à cet agent depuis la page Agents pour voir leurs endpoints ici
+                  </p>
+                  <Button variant="outline" onClick={() => navigate("/agents")}>
+                    <Wrench className="h-4 w-4 mr-2" />
+                    Gérer les outils
+                  </Button>
+                </CardContent>
+              </Card>
             ) : filteredEndpoints.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
                     <FolderOpen className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-medium mb-2">No endpoints found</h3>
+                  <h3 className="text-lg font-medium mb-2">Aucun endpoint trouvé</h3>
                   <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
-                    Import an OpenAPI specification to see endpoints here
+                    Les outils liés ne contiennent pas encore d'endpoints
                   </p>
-                  <Button variant="outline" asChild>
-                    <a href="/import">Import API</a>
-                  </Button>
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {filteredEndpoints.map((endpoint) => {
-                  const existingAction = getActionForEndpoint(endpoint.id);
-                  const riskLevel = suggestRiskLevel({
-                    operationId: endpoint.operation_id,
-                    name: endpoint.name,
-                    description: endpoint.description,
-                    method: endpoint.method as any,
-                    path: endpoint.path,
-                    tags: endpoint.tags || [],
-                    pathParameters: endpoint.path_parameters || [],
-                    queryParameters: endpoint.query_parameters || [],
-                    headerParameters: endpoint.header_parameters || [],
-                    requestBodySchema: endpoint.request_body_schema,
-                    responseSchemas: endpoint.response_schemas || {},
-                    isDeprecated: endpoint.is_deprecated,
-                  });
+              <div className="space-y-6">
+                {/* Group endpoints by tool */}
+                {linkedTools
+                  .filter((tool) => filteredEndpoints.some((ep) => ep.sourceId === tool.id))
+                  .map((tool) => {
+                    const toolEndpoints = filteredEndpoints.filter((ep) => ep.sourceId === tool.id);
+                    return (
+                      <div key={tool.id} className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-muted-foreground" />
+                          <h3 className="text-sm font-semibold text-foreground">{tool.name}</h3>
+                          <Badge variant="secondary" className="text-xs">{toolEndpoints.length}</Badge>
+                        </div>
+                        <div className="space-y-2 pl-6 border-l-2 border-border">
+                          {toolEndpoints.map((endpoint) => {
+                            const existingAction = getActionForEndpoint(endpoint.id);
+                            const riskLevel = suggestRiskLevel({
+                              operationId: endpoint.operation_id,
+                              name: endpoint.name,
+                              description: endpoint.description,
+                              method: endpoint.method as any,
+                              path: endpoint.path,
+                              tags: endpoint.tags || [],
+                              pathParameters: endpoint.path_parameters || [],
+                              queryParameters: endpoint.query_parameters || [],
+                              headerParameters: endpoint.header_parameters || [],
+                              requestBodySchema: endpoint.request_body_schema,
+                              responseSchemas: endpoint.response_schemas || {},
+                              isDeprecated: endpoint.is_deprecated,
+                            });
 
-                  return (
-                    <EndpointToActionCard
-                      key={endpoint.id}
-                      endpoint={{
-                        id: endpoint.id,
-                        method: endpoint.method,
-                        path: endpoint.path,
-                        name: endpoint.name,
-                        description: endpoint.description,
-                        isDeprecated: endpoint.is_deprecated,
-                        hasAction: !!existingAction,
-                      }}
-                      suggestedRisk={riskLevel}
-                      onConvert={() => openBuilderForEndpoint(endpoint)}
-                      onView={() => existingAction && openBuilderForEdit(existingAction)}
-                    />
-                  );
-                })}
+                            return (
+                              <EndpointToActionCard
+                                key={endpoint.id}
+                                endpoint={{
+                                  id: endpoint.id,
+                                  method: endpoint.method,
+                                  path: endpoint.path,
+                                  name: endpoint.name,
+                                  description: endpoint.description,
+                                  isDeprecated: endpoint.is_deprecated,
+                                  hasAction: !!existingAction,
+                                }}
+                                suggestedRisk={riskLevel}
+                                onConvert={() => openBuilderForEndpoint(endpoint)}
+                                onView={() => existingAction && openBuilderForEdit(existingAction)}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </TabsContent>
