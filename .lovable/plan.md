@@ -1,106 +1,78 @@
 
 
-# Lier les Agents aux Outils (bidirectionnel)
+# Charger les endpoints par outils lies dans Actions
 
-## Objectif
+## Probleme actuel
 
-Permettre de gerer les liens agent-outil depuis les deux pages : voir et ajouter/retirer des outils depuis un agent, et voir et ajouter/retirer des agents depuis un outil.
+La page Actions charge les endpoints via `api_sources.project_id = currentProject.id`. Cela ne fonctionne plus car les outils (`api_sources`) sont maintenant globaux a l'organisation et lies aux agents via `agent_tools`, pas via `project_id`.
 
-## Aucune migration necessaire
+## Solution
 
-La table `agent_tools` (agent_id, api_source_id) existe deja avec les bonnes politiques de securite.
+Modifier `fetchData()` dans `Actions.tsx` pour :
 
----
+1. D'abord recuperer les `api_source_id` lies a l'agent courant via `agent_tools`
+2. Puis charger les endpoints de ces sources uniquement
+3. Grouper l'affichage des endpoints par outil pour plus de lisibilite
 
-## Page Agents (`Projects.tsx`)
+## Modifications dans `src/pages/Actions.tsx`
 
-### Afficher les outils lies sur chaque carte
+### 1. Nouveau fetch via agent_tools
 
-- Sous le badge de statut et la date, ajouter une ligne avec les noms des outils lies (petits badges cliquables)
-- Si aucun outil lie, afficher "Aucun outil"
-- Charger les liens via `agent_tools` avec jointure sur `api_sources` pour chaque agent
+Remplacer la requete endpoints actuelle :
 
-### Bouton "Gerer les outils" sur chaque carte
+```text
+// AVANT (ne fonctionne plus)
+supabase.from("endpoints")
+  .select("*, api_sources!inner(project_id)")
+  .eq("api_sources.project_id", currentProject.id)
 
-- Ajouter une icone Wrench dans le menu dropdown (trois points) de chaque agent
-- Au clic, ouvrir un **Dialog** "Outils de [nom agent]" contenant :
-  - La liste des outils deja lies avec un bouton X pour retirer
-  - Un select/combobox pour ajouter un outil parmi ceux de l'organisation non encore lies
-  - Bouton "Ajouter" pour inserer dans `agent_tools`
+// APRES (via les outils lies)
+// Etape 1 : recuperer les outils lies
+const { data: linkedTools } = await supabase
+  .from("agent_tools")
+  .select("api_source_id, api_sources(id, name)")
+  .eq("agent_id", currentProject.id);
 
-### Chargement des donnees
+// Etape 2 : charger les endpoints de ces outils
+const sourceIds = linkedTools.map(t => t.api_source_id);
+const { data: endpointsData } = await supabase
+  .from("endpoints")
+  .select("*")
+  .in("api_source_id", sourceIds);
+```
 
-- Apres le fetch des projets, faire un second fetch pour recuperer tous les `agent_tools` de l'organisation avec les noms des `api_sources`
-- Stocker dans un state `agentToolsMap: Record<agentId, Tool[]>`
+### 2. Grouper les endpoints par outil
 
----
+Ajouter un state `toolsMap` pour afficher un en-tete par outil dans l'onglet Endpoints :
 
-## Page Outils (`Tools.tsx`)
+```text
+// Affichage :
+// --- SendGrid ---
+//   GET /v3/scopes
+//   POST /v3/mail/send
+// --- Stripe ---
+//   GET /v1/customers
+```
 
-### Badge "X agents" cliquable
+Chaque groupe aura un petit titre avec le nom de l'outil et un separateur visuel.
 
-- Le badge existant `{tool.agent_count} agents` devient un bouton
-- Au clic, ouvrir un **Popover** ou **Dialog** affichant :
-  - La liste des agents lies (noms) avec un bouton X pour delier
-  - Un select pour ajouter un agent parmi ceux de l'organisation non encore lies
-  - Bouton "Ajouter" pour inserer dans `agent_tools`
+### 3. Message vide adapte
 
-### Chargement des noms d'agents
+Si aucun outil n'est lie a l'agent, afficher un message specifique :
+- "Aucun outil lie a cet agent"
+- Bouton "Gerer les outils" qui redirige vers `/agents`
 
-- Enrichir le fetch existant dans `fetchTools` pour recuperer aussi les noms des agents lies via `agent_tools` + jointure `projects`
+### 4. Stocker le nom de l'outil sur chaque endpoint
 
----
+Enrichir l'interface `Endpoint` avec `sourceName` et `sourceId` pour pouvoir grouper et afficher proprement.
 
-## Fichiers modifies
+## Fichier modifie
 
 | Fichier | Modification |
 |---------|-------------|
-| `src/pages/Projects.tsx` | Fetch agent_tools, afficher outils lies sur les cartes, dialog de gestion des outils par agent |
-| `src/pages/Tools.tsx` | Badge agents cliquable, dialog/popover de gestion des agents par outil, enrichir fetchTools |
+| `src/pages/Actions.tsx` | Refactorer `fetchData` pour passer par `agent_tools`, grouper endpoints par outil, adapter le message vide |
 
-## Details techniques
+## Aucune migration necessaire
 
-### Requetes cles
-
-Charger les outils d'un agent :
-```text
-supabase
-  .from("agent_tools")
-  .select("api_source_id, api_sources(id, name)")
-  .eq("agent_id", agentId)
-```
-
-Charger les agents d'un outil :
-```text
-supabase
-  .from("agent_tools")
-  .select("agent_id, projects:agent_id(id, name)")
-  .eq("api_source_id", toolId)
-```
-
-Ajouter un lien :
-```text
-supabase.from("agent_tools").insert({ agent_id, api_source_id })
-```
-
-Retirer un lien :
-```text
-supabase.from("agent_tools").delete()
-  .eq("agent_id", agentId)
-  .eq("api_source_id", toolId)
-```
-
-### Flux utilisateur
-
-```text
-Depuis /agents :
-  1. L'utilisateur voit les outils lies sur chaque carte agent
-  2. Menu "..." > "Gerer les outils" ouvre un dialog
-  3. Il peut retirer un outil (bouton X) ou en ajouter (select + bouton)
-
-Depuis /tools :
-  1. L'utilisateur voit le badge "2 agents" sur chaque carte outil
-  2. Clic sur le badge ouvre un dialog
-  3. Il peut retirer un agent (bouton X) ou en ajouter (select + bouton)
-```
+Toutes les tables et relations existent deja.
 
