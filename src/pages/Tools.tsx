@@ -26,6 +26,7 @@ import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { ToolLibrary } from "@/components/tools/ToolLibrary";
+import { ManageToolAgentsDialog } from "@/components/tools/ManageToolAgentsDialog";
 import {
   Wrench,
   Plus,
@@ -36,6 +37,7 @@ import {
   Calendar,
   Plug,
   BookOpen,
+  Bot,
 } from "lucide-react";
 
 interface Tool {
@@ -57,6 +59,7 @@ export default function Tools() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [manageAgentsTool, setManageAgentsTool] = useState<{ id: string; name: string } | null>(null);
 
   const { organization } = useCurrentProject();
 
@@ -275,9 +278,18 @@ export default function Tools() {
                             Connecté
                           </Badge>
                         )}
-                        {tool.agent_count > 0 && (
-                          <Badge variant="default">{tool.agent_count} agent{tool.agent_count > 1 ? "s" : ""}</Badge>
-                        )}
+                        <button
+                          onClick={() => setManageAgentsTool({ id: tool.id, name: tool.name })}
+                          className="inline-flex"
+                        >
+                          <Badge
+                            variant={tool.agent_count > 0 ? "default" : "outline"}
+                            className="gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                          >
+                            <Bot className="h-3 w-3" />
+                            {tool.agent_count} agent{tool.agent_count !== 1 ? "s" : ""}
+                          </Badge>
+                        </button>
                       </div>
                       <div className="flex items-center text-xs text-muted-foreground mt-3">
                         <Calendar className="h-3 w-3 mr-1" />
@@ -296,6 +308,18 @@ export default function Tools() {
           <ToolLibrary />
         </TabsContent>
       </Tabs>
+
+      {/* Manage agents dialog */}
+      {manageAgentsTool && organization && (
+        <ManageToolAgentsDialog
+          open={!!manageAgentsTool}
+          onOpenChange={(open) => !open && setManageAgentsTool(null)}
+          toolId={manageAgentsTool.id}
+          toolName={manageAgentsTool.name}
+          organizationId={organization.id}
+          onChanged={fetchTools}
+        />
+      )}
     </DashboardLayout>
   );
 }

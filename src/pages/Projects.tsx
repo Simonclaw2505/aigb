@@ -3,7 +3,7 @@
  * List and manage all AI agents
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,12 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ProjectSetup } from "@/components/onboarding/ProjectSetup";
+import { ManageAgentToolsDialog } from "@/components/agents/ManageAgentToolsDialog";
 import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2 } from "lucide-react";
+import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2, Wrench } from "lucide-react";
 
 // Status badge variants
 const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -41,12 +42,19 @@ const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
+interface LinkedTool {
+  id: string;
+  name: string;
+}
+
 export default function Projects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDesc, setNewProjectDesc] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [agentToolsMap, setAgentToolsMap] = useState<Record<string, LinkedTool[]>>({});
+  const [manageToolsAgent, setManageToolsAgent] = useState<{ id: string; name: string } | null>(null);
 
   const { user } = useAuth();
   const {
@@ -59,6 +67,30 @@ export default function Projects() {
     setCurrentProject,
     refetch,
   } = useCurrentProject();
+
+  const fetchAgentTools = useCallback(async () => {
+    if (!organization) return;
+    try {
+      const { data } = await supabase
+        .from("agent_tools")
+        .select("agent_id, api_source_id, api_sources(id, name)");
+
+      const map: Record<string, LinkedTool[]> = {};
+      (data || []).forEach((row: any) => {
+        if (!map[row.agent_id]) map[row.agent_id] = [];
+        if (row.api_sources) {
+          map[row.agent_id].push({ id: row.api_sources.id, name: row.api_sources.name });
+        }
+      });
+      setAgentToolsMap(map);
+    } catch (err) {
+      console.error("Failed to fetch agent tools:", err);
+    }
+  }, [organization]);
+
+  useEffect(() => {
+    fetchAgentTools();
+  }, [fetchAgentTools]);
 
   const filteredProjects = projects.filter(
     (p) =>
@@ -239,86 +271,124 @@ export default function Projects() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredProjects.map((project) => (
-              <Card
-                key={project.id}
-                className={`hover:border-primary/50 transition-colors cursor-pointer ${
-                  currentProject?.id === project.id ? "border-primary ring-1 ring-primary/20" : ""
-                }`}
-                onClick={() => setCurrentProject(project)}
-              >
-                <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base truncate">{project.name}</CardTitle>
-                      {currentProject?.id === project.id && (
-                        <Check className="h-4 w-4 text-primary flex-shrink-0" />
+            {filteredProjects.map((project) => {
+              const tools = agentToolsMap[project.id] || [];
+              return (
+                <Card
+                  key={project.id}
+                  className={`hover:border-primary/50 transition-colors cursor-pointer ${
+                    currentProject?.id === project.id ? "border-primary ring-1 ring-primary/20" : ""
+                  }`}
+                  onClick={() => setCurrentProject(project)}
+                >
+                  <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base truncate">{project.name}</CardTitle>
+                        {currentProject?.id === project.id && (
+                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                        )}
+                      </div>
+                      <CardDescription className="mt-1 line-clamp-2">
+                        {project.description || "No description"}
+                      </CardDescription>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setManageToolsAgent({ id: project.id, name: project.name });
+                          }}
+                        >
+                          <Wrench className="h-4 w-4 mr-2" />
+                          Gérer les outils
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {project.status === "draft" && (
+                          <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "active", e)}>
+                            <Play className="h-4 w-4 mr-2" />
+                            Activer le projet
+                          </DropdownMenuItem>
+                        )}
+                        {project.status === "active" && (
+                          <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
+                            <Pause className="h-4 w-4 mr-2" />
+                            Repasser en brouillon
+                          </DropdownMenuItem>
+                        )}
+                        {project.status !== "archived" && (
+                          <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "archived", e)}>
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archiver
+                          </DropdownMenuItem>
+                        )}
+                        {project.status === "archived" && (
+                          <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
+                            <Play className="h-4 w-4 mr-2" />
+                            Restaurer
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <Badge variant={statusVariants[project.status]}>
+                        {project.status}
+                      </Badge>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {new Date(project.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    {/* Linked tools */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                      <Wrench className="h-3 w-3 text-muted-foreground" />
+                      {tools.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">Aucun outil</span>
+                      ) : (
+                        tools.map((t) => (
+                          <Badge key={t.id} variant="outline" className="text-xs py-0">
+                            {t.name}
+                          </Badge>
+                        ))
                       )}
                     </div>
-                    <CardDescription className="mt-1 line-clamp-2">
-                      {project.description || "No description"}
-                    </CardDescription>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 flex-shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {project.status === "draft" && (
-                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "active", e)}>
-                          <Play className="h-4 w-4 mr-2" />
-                          Activer le projet
-                        </DropdownMenuItem>
-                      )}
-                      {project.status === "active" && (
-                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
-                          <Pause className="h-4 w-4 mr-2" />
-                          Repasser en brouillon
-                        </DropdownMenuItem>
-                      )}
-                      {project.status !== "archived" && (
-                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "archived", e)}>
-                          <Archive className="h-4 w-4 mr-2" />
-                          Archiver
-                        </DropdownMenuItem>
-                      )}
-                      {project.status === "archived" && (
-                        <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "draft", e)}>
-                          <Play className="h-4 w-4 mr-2" />
-                          Restaurer
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <Badge variant={statusVariants[project.status]}>
-                      {project.status}
-                    </Badge>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {new Date(project.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Manage tools dialog */}
+      {manageToolsAgent && organization && (
+        <ManageAgentToolsDialog
+          open={!!manageToolsAgent}
+          onOpenChange={(open) => !open && setManageToolsAgent(null)}
+          agentId={manageToolsAgent.id}
+          agentName={manageToolsAgent.name}
+          organizationId={organization.id}
+          onChanged={fetchAgentTools}
+        />
+      )}
     </DashboardLayout>
   );
 }
