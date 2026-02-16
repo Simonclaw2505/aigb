@@ -27,7 +27,7 @@ interface ExecuteRequest {
   steps: PlanStep[];
   approval_id?: string; // If approval was required and granted (legacy)
   confirmed_steps?: number[]; // Steps explicitly confirmed by user
-  security_pin?: string; // PIN for security verification
+  
   skipped_steps?: number[]; // Steps rejected during approval workflow
   approved_steps?: number[]; // Steps approved during approval workflow
 }
@@ -46,7 +46,7 @@ interface StepResult {
     allowed: boolean;
     requires_confirmation: boolean;
     requires_approval: boolean;
-    requires_security_pin: boolean;
+    
     denial_reason?: string;
   };
 }
@@ -81,7 +81,7 @@ serve(async (req) => {
     }
 
     const body: ExecuteRequest = await req.json();
-    const { session_id, project_id, mode, steps, approval_id, confirmed_steps, security_pin, skipped_steps, approved_steps } = body;
+    const { session_id, project_id, mode, steps, approval_id, confirmed_steps, skipped_steps, approved_steps } = body;
 
     // Validate required fields
     if (!session_id || !project_id || !mode || !steps) {
@@ -170,7 +170,8 @@ serve(async (req) => {
             allowed: false,
             requires_confirmation: false,
             requires_approval: true,
-            requires_security_pin: false,
+
+
             denial_reason: "Action rejected by administrator",
           },
         });
@@ -191,7 +192,7 @@ serve(async (req) => {
             allowed: false,
             requires_confirmation: false,
             requires_approval: false,
-            requires_security_pin: false,
+            
             denial_reason: "Action not available",
           },
         });
@@ -203,7 +204,7 @@ serve(async (req) => {
       let allowed = true;
       let requiresConfirmation = false;
       let requiresApproval = false;
-      let requiresSecurityPin = false;
+      
       let denialReason: string | undefined;
 
       // Check agent capability policy
@@ -248,78 +249,15 @@ serve(async (req) => {
         }
       }
 
-      // Check if action requires security PIN based on risk level
+      // High-risk actions require confirmation (operator key verification)
       const riskLevel = action.risk_level as string;
       if (riskLevel === "irreversible" || riskLevel === "risky_write") {
-        requiresSecurityPin = true;
+        requiresConfirmation = true;
         
-        // SECURITY: Server-side PIN verification for high-risk actions
-        if (mode === "execute" && requiresSecurityPin) {
-          if (!security_pin) {
-            allowed = false;
-            denialReason = "Security PIN required for high-risk action";
-          } else {
-            // Validate PIN format first
-            if (!/^\d{6}$/.test(security_pin)) {
-              allowed = false;
-              denialReason = "Invalid PIN format — must be 6 digits";
-            } else {
-              // SECURITY: Check brute-force lockout (5 attempts / 15 min)
-              const lockoutWindow = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-              const { count: failedAttempts } = await supabase
-                .from("pin_attempt_logs")
-                .select("*", { count: "exact", head: true })
-                .eq("user_id", user.id)
-                .eq("organization_id", project.organization_id)
-                .eq("success", false)
-                .gte("attempted_at", lockoutWindow);
-
-              if ((failedAttempts || 0) >= 5) {
-                allowed = false;
-                denialReason = "Too many failed PIN attempts. Try again later.";
-              } else {
-                // Server-side PIN verification via database
-                const { data: pinData } = await supabase
-                  .from("admin_security_pins")
-                  .select("pin_hash")
-                  .eq("organization_id", project.organization_id)
-                  .eq("user_id", user.id)
-                  .single();
-
-                if (!pinData) {
-                  allowed = false;
-                  denialReason = "Security PIN not configured for this user";
-                } else {
-                  const { data: isValid, error: pinError } = await supabase
-                    .rpc("verify_security_pin", { pin: security_pin, stored_hash: pinData.pin_hash });
-
-                  // Log attempt
-                  await supabase.from("pin_attempt_logs").insert({
-                    user_id: user.id,
-                    organization_id: project.organization_id,
-                    success: !!(isValid && !pinError),
-                  });
-
-                  if (pinError || !isValid) {
-                    allowed = false;
-                    denialReason = "Invalid security PIN";
-
-                    await supabase.from("audit_logs").insert({
-                      user_id: user.id,
-                      organization_id: project.organization_id,
-                      action: "security_pin_failed",
-                      resource_type: "security_pin",
-                      metadata: {
-                        session_id,
-                        step_number: step.step_number,
-                        action_template_id: step.action_template_id,
-                      },
-                    });
-                  }
-                }
-              }
-            }
-          }
+        // In execute mode, verify confirmation was provided
+        if (mode === "execute" && !confirmed_steps?.includes(step.step_number)) {
+          allowed = false;
+          denialReason = "High-risk action requires confirmation via operator key";
         }
       }
 
@@ -374,7 +312,8 @@ serve(async (req) => {
             allowed: false,
             requires_confirmation: requiresConfirmation,
             requires_approval: requiresApproval,
-            requires_security_pin: requiresSecurityPin,
+
+
             denial_reason: denialReason,
           },
         });
@@ -399,7 +338,8 @@ serve(async (req) => {
             allowed: true,
             requires_confirmation: requiresConfirmation,
             requires_approval: requiresApproval,
-            requires_security_pin: requiresSecurityPin,
+
+
           },
         });
       } else {
@@ -432,7 +372,8 @@ serve(async (req) => {
                 allowed: true,
                 requires_confirmation: requiresConfirmation,
                 requires_approval: requiresApproval,
-                requires_security_pin: requiresSecurityPin,
+
+
               },
             });
           } else {
@@ -446,7 +387,8 @@ serve(async (req) => {
                 allowed: true,
                 requires_confirmation: requiresConfirmation,
                 requires_approval: requiresApproval,
-                requires_security_pin: requiresSecurityPin,
+
+
               },
             });
           }
@@ -460,7 +402,7 @@ serve(async (req) => {
               allowed: true,
               requires_confirmation: requiresConfirmation,
               requires_approval: requiresApproval,
-              requires_security_pin: requiresSecurityPin,
+              
             },
           });
         }
