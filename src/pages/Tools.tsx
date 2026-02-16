@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { ToolLibrary } from "@/components/tools/ToolLibrary";
 import {
   Wrench,
   Plus,
@@ -33,6 +35,7 @@ import {
   Globe,
   Calendar,
   Plug,
+  BookOpen,
 } from "lucide-react";
 
 interface Tool {
@@ -101,10 +104,8 @@ export default function Tools() {
   const handleDelete = async (toolId: string) => {
     setDeletingId(toolId);
     try {
-      // Delete agent_tools links
       await supabase.from("agent_tools").delete().eq("api_source_id", toolId);
       
-      // Delete action_templates linked to endpoints
       const { data: endpointIds } = await supabase
         .from("endpoints")
         .select("id")
@@ -117,11 +118,8 @@ export default function Tools() {
           .in("endpoint_id", endpointIds.map((e) => e.id));
       }
 
-      // Delete endpoints
       await supabase.from("endpoints").delete().eq("api_source_id", toolId);
-      // Delete connectors
       await supabase.from("api_connectors").delete().eq("api_source_id", toolId);
-      // Delete source
       const { error } = await supabase.from("api_sources").delete().eq("id", toolId);
       if (error) throw error;
 
@@ -160,125 +158,144 @@ export default function Tools() {
 
   return (
     <DashboardLayout title="Outils" description="Catalogue d'APIs disponibles pour vos agents">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un outil..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Button asChild>
-            <Link to="/import">
-              <Plus className="mr-2 h-4 w-4" />
-              Ajouter un outil
-            </Link>
-          </Button>
-        </div>
+      <Tabs defaultValue="my-tools" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="my-tools" className="gap-2">
+            <Wrench className="h-4 w-4" />
+            Mes outils
+          </TabsTrigger>
+          <TabsTrigger value="library" className="gap-2">
+            <BookOpen className="h-4 w-4" />
+            Bibliothèque
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Tools Grid */}
-        {filteredTools.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Wrench className="h-8 w-8 text-muted-foreground" />
+        <TabsContent value="my-tools">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher un outil..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-              <h3 className="text-lg font-medium mb-2">
-                {searchQuery ? "Aucun outil trouvé" : "Aucun outil configuré"}
-              </h3>
-              <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
-                {searchQuery
-                  ? "Essayez une autre recherche"
-                  : "Ajoutez votre première API pour la rendre disponible à vos agents"}
-              </p>
-              {!searchQuery && (
-                <Button asChild>
-                  <Link to="/import">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter un outil
-                  </Link>
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredTools.map((tool) => (
-              <Card key={tool.id} className="hover:border-primary/50 transition-colors">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <CardTitle className="text-base truncate">{tool.name}</CardTitle>
-                    </div>
-                    <CardDescription className="line-clamp-2">
-                      {tool.description || "Pas de description"}
-                    </CardDescription>
+              <Button asChild>
+                <Link to="/import">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Ajouter un outil
+                </Link>
+              </Button>
+            </div>
+
+            {/* Tools Grid */}
+            {filteredTools.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Wrench className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                        disabled={deletingId === tool.id}
-                      >
-                        {deletingId === tool.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Supprimer {tool.name} ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Cela supprimera cet outil, ses {tool.endpoint_count} endpoint(s),
-                          les connecteurs et les liens avec les agents. Cette action est irréversible.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDelete(tool.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                          Supprimer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{sourceTypeLabels[tool.source_type] || tool.source_type}</Badge>
-                    <Badge variant="secondary">{tool.endpoint_count} endpoints</Badge>
-                    {tool.connector_count > 0 && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Plug className="h-3 w-3" />
-                        Connecté
-                      </Badge>
-                    )}
-                    {tool.agent_count > 0 && (
-                      <Badge variant="default">{tool.agent_count} agent{tool.agent_count > 1 ? "s" : ""}</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center text-xs text-muted-foreground mt-3">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {new Date(tool.created_at).toLocaleDateString()}
-                    {tool.version && <span className="ml-2">• v{tool.version}</span>}
-                  </div>
+                  <h3 className="text-lg font-medium mb-2">
+                    {searchQuery ? "Aucun outil trouvé" : "Aucun outil configuré"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
+                    {searchQuery
+                      ? "Essayez une autre recherche"
+                      : "Ajoutez votre première API pour la rendre disponible à vos agents"}
+                  </p>
+                  {!searchQuery && (
+                    <Button asChild>
+                      <Link to="/import">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Ajouter un outil
+                      </Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredTools.map((tool) => (
+                  <Card key={tool.id} className="hover:border-primary/50 transition-colors">
+                    <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <CardTitle className="text-base truncate">{tool.name}</CardTitle>
+                        </div>
+                        <CardDescription className="line-clamp-2">
+                          {tool.description || "Pas de description"}
+                        </CardDescription>
+                      </div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
+                            disabled={deletingId === tool.id}
+                          >
+                            {deletingId === tool.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Supprimer {tool.name} ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Cela supprimera cet outil, ses {tool.endpoint_count} endpoint(s),
+                              les connecteurs et les liens avec les agents. Cette action est irréversible.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(tool.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Supprimer
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">{sourceTypeLabels[tool.source_type] || tool.source_type}</Badge>
+                        <Badge variant="secondary">{tool.endpoint_count} endpoints</Badge>
+                        {tool.connector_count > 0 && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Plug className="h-3 w-3" />
+                            Connecté
+                          </Badge>
+                        )}
+                        {tool.agent_count > 0 && (
+                          <Badge variant="default">{tool.agent_count} agent{tool.agent_count > 1 ? "s" : ""}</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center text-xs text-muted-foreground mt-3">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        {new Date(tool.created_at).toLocaleDateString()}
+                        {tool.version && <span className="ml-2">• v{tool.version}</span>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="library">
+          <ToolLibrary />
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 }
