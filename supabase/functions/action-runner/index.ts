@@ -89,10 +89,15 @@ function validateInputSchema(inputs: Record<string, unknown>, schema: Record<str
   }
   
   // Validate types and constraints
+  const hasDefinedProperties = Object.keys(schemaProps).length > 0;
+  
   for (const [field, value] of Object.entries(inputs)) {
     const fieldSchema = schemaProps[field];
     if (!fieldSchema) {
-      errors.push(`Unknown field: ${field}`);
+      // Only reject unknown fields if the schema explicitly defines properties
+      if (hasDefinedProperties) {
+        errors.push(`Unknown field: ${field}`);
+      }
       continue;
     }
     
