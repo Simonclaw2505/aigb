@@ -20,12 +20,11 @@ import {
   Trash2,
   Play,
   Loader2,
-  CheckCircle,
-  XCircle,
   Globe,
   Key,
   Route,
 } from "lucide-react";
+import { TestHistoryPanel, type TestHistoryEntry } from "./TestHistoryPanel";
 
 interface ManualEndpoint {
   id: string;
@@ -35,13 +34,6 @@ interface ManualEndpoint {
   description: string;
 }
 
-interface TestResult {
-  success: boolean;
-  status?: number;
-  statusText?: string;
-  body?: unknown;
-  error?: string;
-}
 
 interface InitialData {
   name: string;
@@ -70,7 +62,7 @@ export function ManualApiConfig({ projectId, organizationId, onSuccess, initialD
   const [authValue, setAuthValue] = useState("");
   const [extraHeaders, setExtraHeaders] = useState(initialData?.extraHeaders || "");
   const [endpoints, setEndpoints] = useState<ManualEndpoint[]>(initialData?.endpoints || []);
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testHistory, setTestHistory] = useState<TestHistoryEntry[]>([]);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -110,23 +102,55 @@ export function ManualApiConfig({ projectId, organizationId, onSuccess, initialD
     }
 
     setTesting(true);
-    setTestResult(null);
+    const start = performance.now();
+    const usedMethod = method || "GET";
+    const usedPath = path || "";
 
     try {
       const { data, error } = await supabase.functions.invoke("test-api-connection", {
         body: {
           base_url: baseUrl.trim(),
-          path: path || "",
-          method: method || "GET",
+          path: usedPath,
+          method: usedMethod,
           headers: buildHeaders(),
         },
       });
 
+      const durationMs = Math.round(performance.now() - start);
+
       if (error) throw error;
-      setTestResult(data as TestResult);
+      const result = data as { success: boolean; status?: number; statusText?: string; body?: unknown; error?: string };
+
+      setTestHistory((prev) => [
+        {
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          method: usedMethod,
+          path: usedPath,
+          success: result.success,
+          status: result.status,
+          statusText: result.statusText,
+          body: result.body,
+          error: result.error,
+          durationMs,
+        },
+        ...prev,
+      ]);
     } catch (err: unknown) {
+      const durationMs = Math.round(performance.now() - start);
       const message = err instanceof Error ? err.message : "Erreur de test";
-      setTestResult({ success: false, error: message });
+      setTestHistory((prev) => [
+        {
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          method: usedMethod,
+          path: usedPath,
+          success: false,
+          error: message,
+          durationMs,
+        },
+        ...prev,
+      ]);
     } finally {
       setTesting(false);
     }
@@ -366,60 +390,15 @@ export function ManualApiConfig({ projectId, organizationId, onSuccess, initialD
             )}
           </Button>
 
-          {testResult && (
-            <div className="flex items-center gap-2">
-              {testResult.success ? (
-                <>
-                  <CheckCircle className="h-5 w-5 text-emerald-500" />
-                  <span className="text-sm text-emerald-600 font-medium">
-                    Connexion réussie — {testResult.status} {testResult.statusText}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-5 w-5 text-destructive" />
-                  <span className="text-sm text-destructive font-medium">
-                    Échec — {testResult.error || `${testResult.status} ${testResult.statusText}`}
-                  </span>
-                </>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Response preview */}
-      {testResult?.body && (
-        <Card className="overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Réponse du serveur</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(() => {
-              const body = testResult.body as Record<string, unknown>;
-              if (body && typeof body === "object" && Array.isArray(body.data)) {
-                const count = body.data.length;
-                const meta = body.meta as Record<string, unknown> | undefined;
-                const total = meta?.total_count ?? meta?.count;
-                return (
-                  <p className="text-sm text-muted-foreground">
-                    {count} élément{count > 1 ? "s" : ""} retourné{count > 1 ? "s" : ""}
-                    {total != null ? ` sur ${total} au total` : ""}.
-                    {" "}L'API peut utiliser la pagination — ajoute <code className="text-xs bg-muted px-1 rounded">?page[size]=200</code> dans le chemin pour en récupérer plus.
-                  </p>
-                );
-              }
-              return null;
-            })()}
-            <pre className="bg-muted rounded-md p-3 text-xs font-mono overflow-auto max-h-48 max-w-full whitespace-pre-wrap break-all">
-              {typeof testResult.body === "string"
-                ? testResult.body
-                : JSON.stringify(testResult.body, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
-
+      {/* Test history */}
+      <TestHistoryPanel
+        history={testHistory}
+        onClear={() => setTestHistory([])}
+        methodColors={methodColors}
+      />
       {/* Endpoints */}
       <Card>
         <CardHeader>
