@@ -1,75 +1,63 @@
 
 
-# Correction : validation des inputs dans action-runner
+# Sauvegarder la clé API lors de la configuration manuelle d'un outil
 
-## Probleme identifie
+## Problème
 
-L'action `create_send` (POST /v3/mail/send) a un `input_schema` vide :
-```json
-{ "type": "object", "properties": {} }
-```
+Quand vous configurez un outil manuellement (page Import), vous entrez votre clé API SendGrid pour tester la connexion. Le test fonctionne car la clé est envoyée dans les headers. Mais lors de la sauvegarde, **la clé n'est jamais stockée** : le connecteur est créé sans `credential_secret_id`, donc l'action-runner ne peut pas s'authentifier ensuite.
 
-Quand le LLM genere un plan avec des inputs (`from`, `to`, `subject`, `html_body`), le validateur dans `action-runner` (ligne 92-96) rejette chaque champ comme "Unknown field" car aucun n'est declare dans `properties`.
-
-C'est un probleme a deux niveaux :
-
-1. **Les schemas ne sont pas remplis** lors de l'import/creation des actions
-2. **Le validateur est trop strict** : il rejette les champs inconnus meme quand le schema est vide (ce qui devrait signifier "accepter tout")
+Le panneau Connecteurs (`ConnectorsPanel`) a déjà cette logique (créer un secret puis le lier), mais `ManualApiConfig` ne l'a pas.
 
 ## Solution
 
-### 1. Corriger le validateur dans `action-runner/index.ts`
+Modifier `ManualApiConfig.tsx` pour, lors de la sauvegarde :
 
-Modifier `validateInputSchema` pour etre tolerant quand `properties` est vide. Si le schema ne definit aucune propriete, on considere que tous les champs sont acceptes (le schema n'a simplement pas ete configure).
-
-```text
-Fichier: supabase/functions/action-runner/index.ts
-Fonction: validateInputSchema (ligne 79-124)
-
-Changement: Si schema.properties est vide ou absent, 
-sauter la verification des champs inconnus.
-Garder la verification des champs requis et des types 
-quand les proprietes sont definies.
-```
-
-### 2. Corriger aussi le dry-run dans `execute-plan`
-
-Le `execute-plan` appelle `action-runner` pour l'execution reelle. Le dry-run ne passe pas par cette validation, donc il reussit. Mais l'execution echoue car `action-runner` valide.
-
-Aucun changement necessaire dans `execute-plan` -- le fix dans `action-runner` suffit.
+1. **Créer un secret** dans la table `secrets` contenant la clé API (si une valeur d'authentification a été saisie)
+2. **Lier ce secret** au connecteur via `credential_secret_id`
 
 ## Modification technique
 
-### `supabase/functions/action-runner/index.ts`
+### `src/components/import/ManualApiConfig.tsx`
 
-Dans la fonction `validateInputSchema`, ajouter une condition au debut de la boucle de validation des champs :
+Dans la fonction `handleSave`, entre la création de l'`api_source` et la création du connecteur, ajouter :
 
 ```typescript
-// Si properties est vide, ne pas rejeter les champs inconnus
-const hasDefinedProperties = Object.keys(schemaProps).length > 0;
+// Si l'utilisateur a saisi une clé API, la stocker comme secret
+let credentialSecretId: string | null = null;
 
-for (const [field, value] of Object.entries(inputs)) {
-  const fieldSchema = schemaProps[field];
-  if (!fieldSchema) {
-    // Seulement rejeter si le schema definit explicitement des proprietes
-    if (hasDefinedProperties) {
-      errors.push(`Unknown field: ${field}`);
-    }
-    continue;
-  }
-  // ... reste de la validation inchange
+if (authValue.trim() && authType !== "none") {
+  const { data: secretData, error: secretError } = await supabase
+    .from("secrets")
+    .insert({
+      organization_id: organizationId,
+      project_id: projectId,
+      name: `${apiName.trim()}_credential`,
+      description: `API credential for ${apiName.trim()}`,
+      encrypted_value: authValue.trim(),
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (secretError) throw secretError;
+  credentialSecretId = secretData.id;
 }
 ```
 
-## Fichiers concernes
+Puis dans l'insert du connecteur, ajouter le champ :
+
+```typescript
+credential_secret_id: credentialSecretId,
+```
+
+## Fichiers concernés
 
 | Fichier | Modification |
 |---------|-------------|
-| `supabase/functions/action-runner/index.ts` | Tolerant aux champs inconnus quand properties est vide |
+| `src/components/import/ManualApiConfig.tsx` | Stocker la clé API comme secret et la lier au connecteur |
 
-## Resultat attendu
+## Résultat attendu
 
-- Si `input_schema.properties` est vide : tous les champs sont acceptes
-- Si `input_schema.properties` definit des champs : seuls ces champs sont acceptes (comportement actuel)
-- L'envoi de mail passera car le schema vide ne bloquera plus les inputs generes par le LLM
-
+- Quand vous sauvegardez un outil avec une clé API, celle-ci est stockée dans `secrets` et liée au connecteur
+- L'action-runner pourra ensuite récupérer le secret et construire le header d'authentification
+- Le test et l'exécution réelle utiliseront la même clé
