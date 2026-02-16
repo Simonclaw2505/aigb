@@ -1,78 +1,57 @@
 
 
-# Charger les endpoints par outils lies dans Actions
+# Rendre les champs Schema et Examples editables
 
-## Probleme actuel
+## Probleme
 
-La page Actions charge les endpoints via `api_sources.project_id = currentProject.id`. Cela ne fonctionne plus car les outils (`api_sources`) sont maintenant globaux a l'organisation et lies aux agents via `agent_tools`, pas via `project_id`.
+Dans `ActionBuilderForm.tsx`, les textareas JSON (input schema, output schema, expected params des examples) utilisent `JSON.parse()` dans le `onChange`. Pendant la frappe, le JSON intermediaire est invalide, donc le `catch` ignore la modification et le texte ne bouge pas.
 
 ## Solution
 
-Modifier `fetchData()` dans `Actions.tsx` pour :
+Remplacer le pattern "parse a chaque frappe" par des **etats texte intermediaires** avec validation au `onBlur` (quand on quitte le champ) et indicateur visuel d'erreur.
 
-1. D'abord recuperer les `api_source_id` lies a l'agent courant via `agent_tools`
-2. Puis charger les endpoints de ces sources uniquement
-3. Grouper l'affichage des endpoints par outil pour plus de lisibilite
+## Modifications dans `src/components/actions/ActionBuilderForm.tsx`
 
-## Modifications dans `src/pages/Actions.tsx`
+### 1. Nouveaux etats texte
 
-### 1. Nouveau fetch via agent_tools
+Ajouter des states string pour stocker le texte brut des champs JSON :
+- `inputSchemaText` et `inputSchemaError`
+- `outputSchemaText` et `outputSchemaError`
 
-Remplacer la requete endpoints actuelle :
+Initialises avec `JSON.stringify(formData.inputSchema, null, 2)` dans un `useEffect` qui reagit aux changements de `formData`.
 
+### 2. Onglet Schema - Input Schema (lignes ~370-390)
+
+Remplacer :
 ```text
-// AVANT (ne fonctionne plus)
-supabase.from("endpoints")
-  .select("*, api_sources!inner(project_id)")
-  .eq("api_sources.project_id", currentProject.id)
-
-// APRES (via les outils lies)
-// Etape 1 : recuperer les outils lies
-const { data: linkedTools } = await supabase
-  .from("agent_tools")
-  .select("api_source_id, api_sources(id, name)")
-  .eq("agent_id", currentProject.id);
-
-// Etape 2 : charger les endpoints de ces outils
-const sourceIds = linkedTools.map(t => t.api_source_id);
-const { data: endpointsData } = await supabase
-  .from("endpoints")
-  .select("*")
-  .in("api_source_id", sourceIds);
+value={JSON.stringify(formData.inputSchema, null, 2)}
+onChange={(e) => { try { updateField("inputSchema", JSON.parse(e.target.value)); } catch {} }}
 ```
 
-### 2. Grouper les endpoints par outil
-
-Ajouter un state `toolsMap` pour afficher un en-tete par outil dans l'onglet Endpoints :
-
+Par :
 ```text
-// Affichage :
-// --- SendGrid ---
-//   GET /v3/scopes
-//   POST /v3/mail/send
-// --- Stripe ---
-//   GET /v1/customers
+value={inputSchemaText}
+onChange={(e) => setInputSchemaText(e.target.value)}
+onBlur={() => { try { updateField("inputSchema", JSON.parse(inputSchemaText)); clearError(); } catch { setError(); } }}
+className={error ? "border-red-500" : ""}
 ```
++ message d'erreur rouge sous le textarea si JSON invalide.
 
-Chaque groupe aura un petit titre avec le nom de l'outil et un separateur visuel.
+### 3. Onglet Schema - Output Schema (lignes ~395-410)
 
-### 3. Message vide adapte
+Meme traitement pour le output schema.
 
-Si aucun outil n'est lie a l'agent, afficher un message specifique :
-- "Aucun outil lie a cet agent"
-- Bouton "Gerer les outils" qui redirige vers `/agents`
+### 4. Onglet Examples - Expected Params (lignes ~450-465)
 
-### 4. Stocker le nom de l'outil sur chaque endpoint
+Pour chaque example, stocker le texte de `expectedParams` dans un state local (Map par index) avec le meme pattern : edition libre + parse au blur + indicateur d'erreur.
 
-Enrichir l'interface `Endpoint` avec `sourceName` et `sourceId` pour pouvoir grouper et afficher proprement.
+### 5. Validation a la sauvegarde
+
+Avant d'appeler `onSave`, verifier que tous les champs JSON sont valides. Si invalide, afficher un toast et basculer sur l'onglet concerne.
 
 ## Fichier modifie
 
 | Fichier | Modification |
 |---------|-------------|
-| `src/pages/Actions.tsx` | Refactorer `fetchData` pour passer par `agent_tools`, grouper endpoints par outil, adapter le message vide |
-
-## Aucune migration necessaire
-
-Toutes les tables et relations existent deja.
+| `src/components/actions/ActionBuilderForm.tsx` | Etats texte intermediaires pour tous les champs JSON, validation au blur, indicateurs d'erreur visuels, validation avant sauvegarde |
 
