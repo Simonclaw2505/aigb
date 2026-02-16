@@ -1,59 +1,75 @@
 
 
-# Suppression du PIN a 6 chiffres et unification avec les cles operateur
+# Correction : validation des inputs dans action-runner
 
-## Probleme
+## Probleme identifie
 
-Le simulateur contient deux systemes de verification en parallele :
-1. **PIN a 6 chiffres** (`SecurityPinDialog`) -- ancien systeme, demande un code que personne n'a configure
-2. **Cle operateur** (`ConfirmActionDialog` avec verification via `verify-operator-key`) -- nouveau systeme, fonctionnel
+L'action `create_send` (POST /v3/mail/send) a un `input_schema` vide :
+```json
+{ "type": "object", "properties": {} }
+```
 
-Quand `evaluate-permission` retourne `requires_security_pin: true`, le simulateur ouvre le dialogue de PIN au lieu d'utiliser la cle operateur. C'est pourquoi vous voyez cette demande de PIN incomprehensible.
+Quand le LLM genere un plan avec des inputs (`from`, `to`, `subject`, `html_body`), le validateur dans `action-runner` (ligne 92-96) rejette chaque champ comme "Unknown field" car aucun n'est declare dans `properties`.
+
+C'est un probleme a deux niveaux :
+
+1. **Les schemas ne sont pas remplis** lors de l'import/creation des actions
+2. **Le validateur est trop strict** : il rejette les champs inconnus meme quand le schema est vide (ce qui devrait signifier "accepter tout")
 
 ## Solution
 
-Supprimer entierement le systeme de PIN et rediriger toutes les verifications de role vers le systeme de cles operateur existant.
+### 1. Corriger le validateur dans `action-runner/index.ts`
 
-## Modifications
+Modifier `validateInputSchema` pour etre tolerant quand `properties` est vide. Si le schema ne definit aucune propriete, on considere que tous les champs sont acceptes (le schema n'a simplement pas ete configure).
 
-### 1. `src/pages/Simulator.tsx`
+```text
+Fichier: supabase/functions/action-runner/index.ts
+Fonction: validateInputSchema (ligne 79-124)
 
-- Supprimer l'import de `SecurityPinDialog`
-- Supprimer les etats `pinDialogOpen`, `pinActionStep`, `pinVerifiedForSession`, `securityPin`
-- Supprimer les fonctions `stepNeedsPin`, `getStepsNeedingPin`, `openPinDialog`, `handlePinVerify`
-- Supprimer le composant `SecurityPinDialog` du rendu
-- Traiter `requires_security_pin` de la meme facon que `requires_confirmation` : ouvrir le `ConfirmActionDialog` avec `requiresOperatorKey: true`
-- Supprimer l'envoi de `security_pin` dans le body de `execute-plan`
+Changement: Si schema.properties est vide ou absent, 
+sauter la verification des champs inconnus.
+Garder la verification des champs requis et des types 
+quand les proprietes sont definies.
+```
 
-### 2. `supabase/functions/evaluate-permission/index.ts`
+### 2. Corriger aussi le dry-run dans `execute-plan`
 
-- Remplacer `requires_security_pin: true` par `requires_confirmation: true` (avec un flag `requires_operator_key`)
-- Ou simplement garder `requires_confirmation` qui declenche deja la verification par cle operateur dans le `ConfirmActionDialog`
+Le `execute-plan` appelle `action-runner` pour l'execution reelle. Le dry-run ne passe pas par cette validation, donc il reussit. Mais l'execution echoue car `action-runner` valide.
 
-### 3. Fichiers a supprimer (nettoyage)
+Aucun changement necessaire dans `execute-plan` -- le fix dans `action-runner` suffit.
 
-- `src/components/security/SecurityPinDialog.tsx` -- plus utilise
-- `src/components/security/SecurityPinSetup.tsx` -- plus utilise
-- `src/hooks/useSecurityPin.ts` -- plus utilise
-- `supabase/functions/verify-security-pin/index.ts` -- plus utilise
+## Modification technique
 
-### 4. `src/pages/Security.tsx`
+### `supabase/functions/action-runner/index.ts`
 
-- Retirer la section de configuration du PIN si elle existe encore
+Dans la fonction `validateInputSchema`, ajouter une condition au debut de la boucle de validation des champs :
 
-## Resultat
+```typescript
+// Si properties est vide, ne pas rejeter les champs inconnus
+const hasDefinedProperties = Object.keys(schemaProps).length > 0;
 
-Quand une action exige une verification de role, le simulateur affiche le `ConfirmActionDialog` avec le champ "Cle de verification" (qui appelle `verify-operator-key`). Plus aucune reference au PIN a 6 chiffres.
+for (const [field, value] of Object.entries(inputs)) {
+  const fieldSchema = schemaProps[field];
+  if (!fieldSchema) {
+    // Seulement rejeter si le schema definit explicitement des proprietes
+    if (hasDefinedProperties) {
+      errors.push(`Unknown field: ${field}`);
+    }
+    continue;
+  }
+  // ... reste de la validation inchange
+}
+```
 
 ## Fichiers concernes
 
-| Fichier | Action |
-|---------|--------|
-| `src/pages/Simulator.tsx` | Supprimer toute la logique PIN, unifier avec ConfirmActionDialog |
-| `supabase/functions/evaluate-permission/index.ts` | Remplacer `requires_security_pin` par `requires_confirmation` |
-| `src/components/security/SecurityPinDialog.tsx` | Supprimer |
-| `src/components/security/SecurityPinSetup.tsx` | Supprimer |
-| `src/hooks/useSecurityPin.ts` | Supprimer |
-| `supabase/functions/verify-security-pin/index.ts` | Supprimer |
-| `src/pages/Security.tsx` | Retirer la section PIN si presente |
+| Fichier | Modification |
+|---------|-------------|
+| `supabase/functions/action-runner/index.ts` | Tolerant aux champs inconnus quand properties est vide |
+
+## Resultat attendu
+
+- Si `input_schema.properties` est vide : tous les champs sont acceptes
+- Si `input_schema.properties` definit des champs : seuls ces champs sont acceptes (comportement actuel)
+- L'envoi de mail passera car le schema vide ne bloquera plus les inputs generes par le LLM
 
