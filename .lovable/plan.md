@@ -1,57 +1,77 @@
 
 
-# Rendre les champs Schema et Examples editables
+# Option A : Fusionner Agent Capabilities dans les Actions et supprimer l'onglet
 
-## Probleme
+## Objectif
 
-Dans `ActionBuilderForm.tsx`, les textareas JSON (input schema, output schema, expected params des examples) utilisent `JSON.parse()` dans le `onChange`. Pendant la frappe, le JSON intermediaire est invalide, donc le `catch` ignore la modification et le texte ne bouge pas.
+Centraliser toute la configuration de securite agent (politique, quotas, environnements) dans le formulaire d'action (`ActionBuilderForm`), et retirer l'onglet "Agent Capabilities" de la page Permissions.
 
-## Solution
+## Etapes
 
-Remplacer le pattern "parse a chaque frappe" par des **etats texte intermediaires** avec validation au `onBlur` (quand on quitte le champ) et indicateur visuel d'erreur.
+### 1. Migration SQL - Ajouter les colonnes a `action_templates`
 
-## Modifications dans `src/components/actions/ActionBuilderForm.tsx`
+Ajouter 5 colonnes a la table `action_templates` :
+- `max_executions_per_hour` (integer, nullable)
+- `max_executions_per_day` (integer, nullable)
+- `allowed_environments` (text array, default `{development,staging,production}`)
+- `agent_policy` (utilise le type enum `agent_capability_policy` existant, default `allow`)
+- `approval_roles` (app_role array, default `{owner,admin}`)
 
-### 1. Nouveaux etats texte
+### 2. `ActionBuilderForm.tsx` - Ajouter les champs dans l'onglet Constraints
 
-Ajouter des states string pour stocker le texte brut des champs JSON :
-- `inputSchemaText` et `inputSchemaError`
-- `outputSchemaText` et `outputSchemaError`
-
-Initialises avec `JSON.stringify(formData.inputSchema, null, 2)` dans un `useEffect` qui reagit aux changements de `formData`.
-
-### 2. Onglet Schema - Input Schema (lignes ~370-390)
-
-Remplacer :
+Mettre a jour `ActionFormData` :
 ```text
-value={JSON.stringify(formData.inputSchema, null, 2)}
-onChange={(e) => { try { updateField("inputSchema", JSON.parse(e.target.value)); } catch {} }}
+agentPolicy: 'allow' | 'deny' | 'require_confirmation' | 'require_approval'
+approvalRoles: string[]
+maxExecutionsPerHour?: number
+maxExecutionsPerDay?: number
+allowedEnvironments: string[]
 ```
 
-Par :
-```text
-value={inputSchemaText}
-onChange={(e) => setInputSchemaText(e.target.value)}
-onBlur={() => { try { updateField("inputSchema", JSON.parse(inputSchemaText)); clearError(); } catch { setError(); } }}
-className={error ? "border-red-500" : ""}
-```
-+ message d'erreur rouge sous le textarea si JSON invalide.
+Ajouter 3 cartes dans l'onglet Constraints :
 
-### 3. Onglet Schema - Output Schema (lignes ~395-410)
+- **Agent Policy** : selecteur Allow/Deny/Require Confirmation/Require Approval, avec checkboxes des roles d'approbation quand policy = require_approval
+- **Execution Quotas** : champs Max Executions/Hour et Max Executions/Day
+- **Allowed Environments** : checkboxes Development, Staging, Production
 
-Meme traitement pour le output schema.
+### 3. `Actions.tsx` - Mapper les nouveaux champs
 
-### 4. Onglet Examples - Expected Params (lignes ~450-465)
+- Dans `ActionTemplate` interface : ajouter les 5 nouveaux champs
+- Dans `handleSaveAction` : inclure `agent_policy`, `approval_roles`, `max_executions_per_hour`, `max_executions_per_day`, `allowed_environments`
+- Dans `createFormDataFromAction` : lire ces champs depuis l'action existante
+- Dans `createFormDataFromEndpoint` : valeurs par defaut (allow, pas de limite, tous les environnements)
+- Dans `handleAutoGenerateAll` et `handleDuplicateAction` : inclure les nouveaux champs
 
-Pour chaque example, stocker le texte de `expectedParams` dans un state local (Map par index) avec le meme pattern : edition libre + parse au blur + indicateur d'erreur.
+### 4. `Permissions.tsx` - Retirer l'onglet Agent Capabilities
 
-### 5. Validation a la sauvegarde
+- Supprimer l'import de `AgentCapabilitiesPanel` et de `Bot`
+- Supprimer le fetch des `actionTemplates` (plus necessaire)
+- Supprimer l'onglet "Agent Capabilities" et son contenu
+- Ne garder que 2 onglets : "User Permissions" et "Audit Logs"
+- Tab par defaut : `user` au lieu de `agent`
+- Adapter le badge compteur et la description
 
-Avant d'appeler `onSave`, verifier que tous les champs JSON sont valides. Si invalide, afficher un toast et basculer sur l'onglet concerne.
+### 5. `evaluate-permission/index.ts` - Lire depuis `action_templates`
 
-## Fichier modifie
+Remplacer la lecture depuis `agent_capabilities` par une lecture directe depuis `action_templates` :
+- Charger `agent_policy`, `approval_roles`, `max_executions_per_hour`, `max_executions_per_day`, `allowed_environments` depuis `action_templates`
+- Appliquer la meme logique de deny/confirm/approve/rate-limit
+- Logger dans `permission_evaluations` comme avant
+
+## Detail technique
+
+### Fichiers modifies
 
 | Fichier | Modification |
 |---------|-------------|
-| `src/components/actions/ActionBuilderForm.tsx` | Etats texte intermediaires pour tous les champs JSON, validation au blur, indicateurs d'erreur visuels, validation avant sauvegarde |
+| Migration SQL | 5 nouvelles colonnes sur `action_templates` |
+| `src/components/actions/ActionBuilderForm.tsx` | Extension de `ActionFormData` + 3 cartes Agent Policy, Quotas, Environments dans l'onglet Constraints |
+| `src/pages/Actions.tsx` | Mapper les 5 nouveaux champs dans save/load/auto-generate/duplicate |
+| `src/pages/Permissions.tsx` | Retirer l'onglet Agent Capabilities, garder User Permissions + Audit Logs |
+| `supabase/functions/evaluate-permission/index.ts` | Lire politique et quotas depuis `action_templates` au lieu de `agent_capabilities` |
+
+### Fichiers non supprimes (mais plus utilises par Permissions.tsx)
+
+- `src/components/permissions/AgentCapabilitiesPanel.tsx` : ne sera plus importe par Permissions.tsx mais reste dans le code (peut etre supprime plus tard si on veut)
+- `src/hooks/usePermissions.ts` : le hook `useAgentCapabilities` ne sera plus utilise par la page Permissions mais reste disponible
 
