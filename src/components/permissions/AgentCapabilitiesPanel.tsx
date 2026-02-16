@@ -63,7 +63,6 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
     free_executions: "",
     max_batch_size: "",
     required_approvals: 1,
-    requires_security_pin: false,
     require_sandbox_first: false,
   });
 
@@ -79,7 +78,6 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
       free_executions: "",
       max_batch_size: "",
       required_approvals: 1,
-      requires_security_pin: false,
       require_sandbox_first: false,
     });
     setEditingCapability(null);
@@ -92,7 +90,6 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
       free_executions?: number | null;
       max_batch_size?: number | null;
       required_approvals?: number;
-      requires_security_pin?: boolean;
       require_sandbox_first?: boolean;
     };
     setFormData({
@@ -106,7 +103,6 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
       free_executions: extendedCap.free_executions?.toString() || "",
       max_batch_size: extendedCap.max_batch_size?.toString() || "",
       required_approvals: extendedCap.required_approvals || 1,
-      requires_security_pin: extendedCap.requires_security_pin || false,
       require_sandbox_first: extendedCap.require_sandbox_first || false,
     });
     setIsDialogOpen(true);
@@ -125,7 +121,6 @@ export function AgentCapabilitiesPanel({ projectId, actionTemplates }: AgentCapa
         ...(formData.free_executions ? { free_executions: parseInt(formData.free_executions) } : {}),
         ...(formData.max_batch_size ? { max_batch_size: parseInt(formData.max_batch_size) } : {}),
         required_approvals: formData.required_approvals,
-        requires_security_pin: formData.requires_security_pin,
         require_sandbox_first: formData.require_sandbox_first,
       };
 

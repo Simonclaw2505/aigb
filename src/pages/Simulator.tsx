@@ -1,6 +1,6 @@
 /**
  * Simulator page for MCP Foundry
- * Interactive Plan → Preview → Execute workflow with confirmation, PIN, and approval support
+ * Interactive Plan → Preview → Execute workflow with confirmation and approval support
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -29,7 +29,6 @@ import {
   Shield,
   Ban,
   FileJson,
-  KeyRound,
   UserCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,9 +39,6 @@ import { ProjectBanner } from "@/components/layout/ProjectBanner";
 import { useApprovalRequests } from "@/hooks/useApprovalRequests";
 import { ConfirmActionDialog } from "@/components/simulator/ConfirmActionDialog";
 import { ApprovalRequestPanel } from "@/components/simulator/ApprovalRequestPanel";
-import { SecurityPinDialog } from "@/components/security/SecurityPinDialog";
-
-// Project interface removed - using useCurrentProject
 
 interface PlanStep {
   step_number: number;
@@ -78,7 +74,6 @@ interface StepResult {
     allowed: boolean;
     requires_confirmation: boolean;
     requires_approval: boolean;
-    requires_security_pin?: boolean;
     denial_reason?: string;
   };
 }
@@ -112,15 +107,11 @@ export default function Simulator() {
 
   // Interactive workflow state
   const [confirmedSteps, setConfirmedSteps] = useState<Set<number>>(new Set());
-  const [pinVerifiedForSession, setPinVerifiedForSession] = useState(false);
-  const [securityPin, setSecurityPin] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
 
   // Dialog states
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmingStep, setConfirmingStep] = useState<PlanStep | null>(null);
-  const [pinDialogOpen, setPinDialogOpen] = useState(false);
-  const [pinActionStep, setPinActionStep] = useState<PlanStep | null>(null);
 
   // Approval requests hook
   const {
@@ -136,25 +127,6 @@ export default function Simulator() {
     organizationId: currentProject?.organization_id || null,
     projectId: selectedProjectId || null,
   });
-
-  // Fetch user role when project changes
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      if (!user || !selectedProjectId) return;
-
-      try {
-        const { data } = await supabase.rpc("get_project_org_role", {
-          _user_id: user.id,
-          _project_id: selectedProjectId,
-        });
-        setUserRole(data);
-      } catch (err) {
-        console.error("Failed to fetch user role:", err);
-      }
-    };
-
-    fetchUserRole();
-  }, [user, selectedProjectId]);
 
   // Fetch user role when project changes
   useEffect(() => {
@@ -195,12 +167,6 @@ export default function Simulator() {
     return result?.permission_check?.requires_confirmation === true && !confirmedSteps.has(stepNumber);
   };
 
-  // Check if a step needs PIN
-  const stepNeedsPin = (stepNumber: number): boolean => {
-    const result = dryRunResult?.results.find((r) => r.step_number === stepNumber);
-    return result?.permission_check?.requires_security_pin === true && !pinVerifiedForSession;
-  };
-
   // Check if a step needs approval
   const stepNeedsApproval = (stepNumber: number): boolean => {
     const result = dryRunResult?.results.find((r) => r.step_number === stepNumber);
@@ -217,21 +183,12 @@ export default function Simulator() {
       .map((r) => r.step_number);
   };
 
-  const getStepsNeedingPin = (): number[] => {
-    if (!dryRunResult || pinVerifiedForSession) return [];
-    return dryRunResult.results
-      .filter((r) => r.permission_check?.requires_security_pin)
-      .map((r) => r.step_number);
-  };
-
   const getStepsNeedingApproval = (): number[] => {
     if (!dryRunResult) return [];
     return dryRunResult.results
       .filter((r) => {
         if (!r.permission_check?.requires_approval) return false;
         const approval = getApprovalForStep(r.step_number);
-        // Only pending or missing approvals block execution
-        // "approved" and "rejected" are terminal states
         return !approval || approval.status === "pending";
       })
       .map((r) => r.step_number);
@@ -253,11 +210,10 @@ export default function Simulator() {
     if (!dryRunResult || !dryRunResult.all_steps_allowed) return false;
     
     const needsConfirmation = getStepsNeedingConfirmation();
-    const needsPin = getStepsNeedingPin();
     const needsApproval = getStepsNeedingApproval();
 
-    return needsConfirmation.length === 0 && needsPin.length === 0 && needsApproval.length === 0;
-  }, [dryRunResult, confirmedSteps, pinVerifiedForSession, getApprovalForStep]);
+    return needsConfirmation.length === 0 && needsApproval.length === 0;
+  }, [dryRunResult, confirmedSteps, getApprovalForStep]);
 
   const handleGeneratePlan = async () => {
     if (!selectedProjectId || !request.trim()) {
@@ -275,8 +231,6 @@ export default function Simulator() {
     setDryRunResult(null);
     setExecuteResult(null);
     setConfirmedSteps(new Set());
-    setPinVerifiedForSession(false);
-    setSecurityPin(null);
     resetApprovals();
 
     try {
@@ -375,45 +329,6 @@ export default function Simulator() {
     setConfirmingStep(null);
   };
 
-  // Handle PIN dialog
-  const openPinDialog = (step: PlanStep) => {
-    setPinActionStep(step);
-    setPinDialogOpen(true);
-  };
-
-  const handlePinVerify = async (pin: string): Promise<boolean> => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-security-pin`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ pin }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (result.valid) {
-        setPinVerifiedForSession(true);
-        setSecurityPin(pin);
-        toast({
-          title: "PIN Verified",
-          description: "Security PIN has been verified for this session",
-        });
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  };
-
   // Handle approval request
   const handleRequestApproval = async (step: PlanStep) => {
     if (!plan) return;
@@ -439,7 +354,7 @@ export default function Simulator() {
     if (!plan || !canExecuteNow()) {
       toast({
         title: "Cannot execute",
-        description: "Please complete all required confirmations, PIN verification, and approvals",
+        description: "Please complete all required confirmations and approvals",
         variant: "destructive",
       });
       return;
@@ -464,7 +379,6 @@ export default function Simulator() {
             mode: "execute",
             steps: plan.steps,
             confirmed_steps: Array.from(confirmedSteps),
-            security_pin: securityPin,
             skipped_steps: getSkippedSteps(),
             approved_steps: getApprovedSteps(),
           }),
@@ -499,8 +413,6 @@ export default function Simulator() {
     setError(null);
     setExpandedSteps(new Set());
     setConfirmedSteps(new Set());
-    setPinVerifiedForSession(false);
-    setSecurityPin(null);
     resetApprovals();
   };
 
@@ -519,9 +431,6 @@ export default function Simulator() {
 
   // Render action buttons for a step
   const renderStepActions = (step: PlanStep, result: StepResult) => {
-    const needsConfirmation = stepNeedsConfirmation(step.step_number);
-    const needsPin = stepNeedsPin(step.step_number);
-    const needsApproval = stepNeedsApproval(step.step_number);
     const isConfirmed = confirmedSteps.has(step.step_number);
 
     return (
@@ -543,28 +452,6 @@ export default function Simulator() {
               >
                 <UserCheck className="h-4 w-4" />
                 Confirm Action
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* PIN section */}
-        {result.permission_check.requires_security_pin && (
-          <div className="flex items-center gap-2">
-            {pinVerifiedForSession ? (
-              <Badge className="gap-1 bg-primary/10 text-primary border-primary/30">
-                <KeyRound className="h-3 w-3" />
-                PIN Verified
-              </Badge>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openPinDialog(step)}
-                className="gap-2"
-              >
-                <KeyRound className="h-4 w-4" />
-                Enter Security PIN
               </Button>
             )}
           </div>
@@ -820,12 +707,6 @@ export default function Simulator() {
                             {getStepsNeedingConfirmation().length} confirmation(s)
                           </Badge>
                         )}
-                        {getStepsNeedingPin().length > 0 && (
-                          <Badge variant="outline" className="gap-1">
-                            <KeyRound className="h-3 w-3" />
-                            PIN required
-                          </Badge>
-                        )}
                         {getStepsNeedingApproval().length > 0 && (
                           <Badge variant="outline" className="gap-1">
                             <Clock className="h-3 w-3" />
@@ -893,12 +774,6 @@ export default function Simulator() {
                                 {confirmedSteps.has(result.step_number) ? "Confirmed" : "Needs Confirmation"}
                               </Badge>
                             )}
-                            {result.permission_check.requires_security_pin && (
-                              <Badge variant={pinVerifiedForSession ? "default" : "outline"} className="text-xs gap-1">
-                                <KeyRound className="h-3 w-3" />
-                                {pinVerifiedForSession ? "PIN Verified" : "Needs PIN"}
-                              </Badge>
-                            )}
                             {result.permission_check.requires_approval && (
                               <Badge variant={getApprovalForStep(result.step_number)?.status === "approved" ? "default" : "outline"} className="text-xs gap-1">
                                 <Clock className="h-3 w-3" />
@@ -935,9 +810,6 @@ export default function Simulator() {
                         <AlertDescription>
                           {getStepsNeedingConfirmation().length > 0 && (
                             <div>• Confirm {getStepsNeedingConfirmation().length} step(s) in the plan above</div>
-                          )}
-                          {getStepsNeedingPin().length > 0 && (
-                            <div>• Enter your security PIN</div>
                           )}
                           {getStepsNeedingApproval().length > 0 && (
                             <div>• Request and obtain {getStepsNeedingApproval().length} approval(s)</div>
@@ -1036,15 +908,6 @@ export default function Simulator() {
           agentId={selectedProjectId}
         />
       )}
-
-      {/* Security PIN Dialog */}
-      <SecurityPinDialog
-        open={pinDialogOpen}
-        onOpenChange={setPinDialogOpen}
-        onVerify={handlePinVerify}
-        actionName={pinActionStep?.action_name}
-        riskLevel="high-risk"
-      />
       </ProjectBanner>
     </DashboardLayout>
   );
