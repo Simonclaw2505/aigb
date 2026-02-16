@@ -251,14 +251,14 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Rollback error:", error);
+    console.error("rollback-execution error:", error);
     const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
       }),
-      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...errorCorsHeaders, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Content-Type": "application/json" } }
     );
   }
 });

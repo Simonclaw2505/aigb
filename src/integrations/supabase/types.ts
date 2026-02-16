@@ -1292,6 +1292,41 @@ export type Database = {
           },
         ]
       }
+      pin_attempt_logs: {
+        Row: {
+          attempted_at: string
+          id: string
+          ip_address: unknown
+          organization_id: string
+          success: boolean
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          id?: string
+          ip_address?: unknown
+          organization_id: string
+          success?: boolean
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          id?: string
+          ip_address?: unknown
+          organization_id?: string
+          success?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pin_attempt_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

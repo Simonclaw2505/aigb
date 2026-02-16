@@ -323,11 +323,11 @@ Respond with a JSON object (no markdown, just JSON):
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error:", error);
+    console.error("generate-plan error:", error);
     const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Internal server error" }),
-      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { ...errorCorsHeaders, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Content-Type": "application/json" } }
     );
   }
 });

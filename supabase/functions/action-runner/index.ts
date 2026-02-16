@@ -720,13 +720,13 @@ serve(async (req) => {
         success: false,
         execution_id: executionId,
         status: "failed",
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Internal server error",
         retries_used: 0,
         duration_ms: Date.now() - startTime,
         redacted_request: {},
         redacted_response: {},
       } as ActionResult),
-      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...errorCorsHeaders, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Content-Type": "application/json" } }
     );
   }
 });

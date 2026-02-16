@@ -1,11 +1,13 @@
 /**
  * Authentication hook for MCP Foundry
  * Provides auth state and methods throughout the application
+ * OWASP A07: Session expiration handling with auto-redirect
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface AuthContextType {
   user: User | null;
@@ -22,14 +24,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [organizationId, setOrganizationId] = useState<string | undefined>(undefined);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // SECURITY: Handle session expiration and token refresh failures
+        if (event === "TOKEN_REFRESHED" && !session) {
+          toast({
+            variant: "destructive",
+            title: "Session expirée",
+            description: "Votre session a expiré. Veuillez vous reconnecter.",
+          });
+          window.location.href = "/auth";
+        }
+
+        if (event === "SIGNED_OUT") {
+          setOrganizationId(undefined);
+        }
       }
     );
 
@@ -41,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [toast]);
 
   // Fetch user's organization when authenticated
   useEffect(() => {
@@ -60,12 +77,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setOrganizationId(undefined);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, session, loading, organizationId, signOut: handleSignOut }}>
