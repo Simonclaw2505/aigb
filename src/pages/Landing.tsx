@@ -107,14 +107,6 @@ export default function Landing() {
               Rejoindre la liste d'attente
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="border-white/20 bg-transparent text-white hover:bg-white/10 px-8 h-12 text-base"
-              onClick={() => document.getElementById("video")?.scrollIntoView({ behavior: "smooth" })}
-            >
-              Voir la présentation
-            </Button>
           </div>
         </div>
       </section>
@@ -155,7 +147,7 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-4">Comment ça marche</h2>
           <p className="text-white/50 text-center mb-14 max-w-2xl mx-auto">
-            En 4 étapes, reprenez le contrôle total sur ce que vos agents IA peuvent faire.
+            En 5 étapes, reprenez le contrôle total sur ce que vos agents IA peuvent faire.
           </p>
 
           <div className="space-y-8">
@@ -284,26 +276,42 @@ export default function Landing() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Video */}
-      <section id="video" className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">Découvrez AIGB en action</h2>
-          <p className="text-white/50 text-center mb-10 max-w-xl mx-auto">
-            Voyez comment AIGB transforme la gestion de vos agents IA en quelques minutes.
-          </p>
-          <div className="rounded-2xl overflow-hidden border border-white/10 bg-black shadow-2xl shadow-[hsl(220,70%,50%)]/5">
-            <video
-              controls
-              className="w-full aspect-video"
-              poster=""
-            >
-              <source src="/videos/aigb-presentation.mp4" type="video/mp4" />
-              Votre navigateur ne supporte pas la lecture vidéo.
-            </video>
+            {/* Step 5 */}
+            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(280,70%,50%)]/[0.06] to-transparent overflow-hidden">
+              <div className="absolute top-0 left-0 w-40 h-40 bg-[hsl(280,70%,50%)]/[0.04] rounded-full blur-3xl" />
+              <div className="flex items-start gap-5 relative z-10">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(280,70%,50%)] to-[hsl(320,60%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(280,70%,50%)]/20">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-xs font-mono text-[hsl(280,70%,60%)] bg-[hsl(280,70%,50%)]/10 px-2 py-0.5 rounded-full">Étape 5</span>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-3">Identifiez chaque utilisateur</h3>
+                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                    Chaque personne qui utilise un agent possède un <strong className="text-white/70">rôle d'opérateur</strong> (Admin, Opérateur, Lecteur)
+                    qui détermine ses droits. Avant d'exécuter une action sensible, l'utilisateur doit fournir sa <strong className="text-white/70">clé unique personnelle</strong> pour
+                    prouver son identité — sans jamais avoir besoin d'un compte sur la plateforme.
+                  </p>
+                  <div className="grid sm:grid-cols-3 gap-2">
+                    {[
+                      { icon: KeyRound, label: "Clé unique", desc: "Identifie l'opérateur à chaque action.", color: "text-amber-400" },
+                      { icon: Shield, label: "Rôles granulaires", desc: "Admin, Opérateur ou Lecteur par agent.", color: "text-violet-400" },
+                      { icon: Lock, label: "Sans compte requis", desc: "Pas besoin de créer un compte utilisateur.", color: "text-cyan-400" },
+                    ].map(({ icon: Icon, label, desc, color }) => (
+                      <div key={label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors">
+                        <Icon className={`w-5 h-5 ${color} mt-0.5 flex-shrink-0`} />
+                        <div>
+                          <span className="text-sm font-medium text-white/80">{label}</span>
+                          <p className="text-xs text-white/40 mt-0.5">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
