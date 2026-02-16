@@ -15,6 +15,7 @@ interface EvaluateRequest {
   resource_id?: string;
   action: string;
   context?: Record<string, unknown>;
+  operator_key_hash?: string;
 }
 
 serve(async (req) => {
@@ -47,7 +48,7 @@ serve(async (req) => {
     }
 
     const body: EvaluateRequest = await req.json();
-    const { action_template_id, resource_type, resource_id, action, context = {} } = body;
+    const { action_template_id, resource_type, resource_id, action, context = {}, operator_key_hash } = body;
 
     // Get the organization for the resource
     let organizationId: string | null = null;
@@ -173,7 +174,7 @@ serve(async (req) => {
       }
     }
 
-    // Determine agent-specific role (if user is an agent member)
+    // Determine effective role: operator key takes priority, then agent member, then org role
     let agentId: string | null = null;
     if (action_template_id) {
       const { data: tpl } = await supabase
@@ -185,7 +186,23 @@ serve(async (req) => {
     }
 
     let effectiveRole: string | null = null;
-    if (agentId) {
+
+    // If an operator key hash is provided, resolve role from operator_keys
+    if (operator_key_hash && agentId) {
+      const { data: operatorData } = await supabase
+        .from("operator_keys")
+        .select("role, is_active, name")
+        .eq("key_hash", operator_key_hash)
+        .eq("agent_id", agentId)
+        .single();
+
+      if (operatorData?.is_active) {
+        effectiveRole = operatorData.role;
+      }
+    }
+
+    // Fallback: agent member role
+    if (!effectiveRole && agentId) {
       const { data: agentRole } = await supabase.rpc("get_agent_role", {
         _user_id: user.id,
         _agent_id: agentId,

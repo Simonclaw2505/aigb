@@ -1136,6 +1136,66 @@ export type Database = {
           },
         ]
       }
+      operator_keys: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          usage_count: number
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          organization_id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          usage_count?: number
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          organization_id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_keys_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           created_at: string
@@ -1765,6 +1825,17 @@ export type Database = {
       get_agent_role: {
         Args: { _agent_id: string; _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      get_operator_by_key_hash: {
+        Args: { _key_hash: string }
+        Returns: {
+          agent_id: string
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
       }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }
