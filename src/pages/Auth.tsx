@@ -1,9 +1,10 @@
 /**
  * Authentication page for MCP Foundry
  * Handles login and signup with email/password
+ * OWASP A03/A07: Zod validation + password strength indicator + rate limiting UI
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,53 +13,112 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
+import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Zap } from "lucide-react";
+
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 30;
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const isLockedOut = lockedUntil !== null && Date.now() < lockedUntil;
+
+  const handleSignIn = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    if (isLockedOut) {
+      toast({
+        variant: "destructive",
+        title: "Trop de tentatives",
+        description: `Réessayez dans ${Math.ceil(((lockedUntil || 0) - Date.now()) / 1000)}s`,
+      });
+      return;
+    }
+
+    // Validate with Zod
+    const result = signInSchema.safeParse({ email, password });
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) errors[String(err.path[0])] = err.message;
+      });
+      setFieldErrors(errors);
+      return;
+    }
+
     setLoading(true);
     try {
-      await signIn({ email, password });
+      await signIn({ email: result.data.email, password: result.data.password });
+      setLoginAttempts(0);
       toast({ title: "Welcome back!", description: "You've been signed in successfully." });
       navigate("/dashboard");
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Sign in failed",
-        description: error.message || "Invalid credentials",
-      });
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+
+      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+        setLockedUntil(Date.now() + LOCKOUT_SECONDS * 1000);
+        setLoginAttempts(0);
+        toast({
+          variant: "destructive",
+          title: "Compte temporairement verrouillé",
+          description: `Trop de tentatives échouées. Réessayez dans ${LOCKOUT_SECONDS}s.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Échec de connexion",
+          description: "Identifiants invalides",
+        });
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, password, loginAttempts, lockedUntil, isLockedOut, navigate, toast]);
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleSignUp = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    const result = signUpSchema.safeParse({ email, password, fullName: fullName || undefined });
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) errors[String(err.path[0])] = err.message;
+      });
+      setFieldErrors(errors);
+      return;
+    }
+
     setLoading(true);
     try {
-      await signUp({ email, password, fullName });
+      await signUp({ email: result.data.email, password: result.data.password, fullName: result.data.fullName });
       toast({
-        title: "Check your email",
-        description: "We've sent you a confirmation link to verify your account.",
+        title: "Vérifiez votre e-mail",
+        description: "Nous vous avons envoyé un lien de confirmation.",
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Sign up failed",
-        description: error.message || "Could not create account",
+        title: "Échec de l'inscription",
+        description: "Impossible de créer le compte. Vérifiez vos informations.",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, password, fullName, toast]);
+
+  const passwordStrength = password.length > 0 ? evaluatePasswordStrength(password) : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -79,7 +139,7 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="signin" className="w-full">
+            <Tabs defaultValue="signin" className="w-full" onValueChange={() => setFieldErrors({})}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -96,8 +156,12 @@ export default function Auth() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      disabled={loading}
+                      disabled={loading || isLockedOut}
+                      autoComplete="email"
                     />
+                    {fieldErrors.email && (
+                      <p className="text-sm text-destructive">{fieldErrors.email}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signin-password">Password</Label>
@@ -108,12 +172,16 @@ export default function Auth() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      disabled={loading}
+                      disabled={loading || isLockedOut}
+                      autoComplete="current-password"
                     />
+                    {fieldErrors.password && (
+                      <p className="text-sm text-destructive">{fieldErrors.password}</p>
+                    )}
                   </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button type="submit" className="w-full" disabled={loading || isLockedOut}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sign In
+                    {isLockedOut ? "Verrouillé temporairement" : "Sign In"}
                   </Button>
                 </form>
               </TabsContent>
@@ -129,7 +197,12 @@ export default function Auth() {
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       disabled={loading}
+                      autoComplete="name"
+                      maxLength={100}
                     />
+                    {fieldErrors.fullName && (
+                      <p className="text-sm text-destructive">{fieldErrors.fullName}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
@@ -141,7 +214,11 @@ export default function Auth() {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={loading}
+                      autoComplete="email"
                     />
+                    {fieldErrors.email && (
+                      <p className="text-sm text-destructive">{fieldErrors.email}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
@@ -152,9 +229,32 @@ export default function Auth() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      minLength={6}
                       disabled={loading}
+                      autoComplete="new-password"
                     />
+                    {fieldErrors.password && (
+                      <p className="text-sm text-destructive">{fieldErrors.password}</p>
+                    )}
+                    {/* Password strength indicator */}
+                    {passwordStrength && (
+                      <div className="space-y-1">
+                        <div className="flex gap-1">
+                          {[0, 1, 2, 3, 4].map((i) => (
+                            <div
+                              key={i}
+                              className={`h-1 flex-1 rounded-full transition-colors ${
+                                i <= passwordStrength.score
+                                  ? passwordStrength.color
+                                  : "bg-muted"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Force : {passwordStrength.label}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

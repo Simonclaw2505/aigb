@@ -264,38 +264,58 @@ serve(async (req) => {
               allowed = false;
               denialReason = "Invalid PIN format — must be 6 digits";
             } else {
-              // Server-side PIN verification via database
-              const { data: pinData } = await supabase
-                .from("admin_security_pins")
-                .select("pin_hash")
-                .eq("organization_id", project.organization_id)
+              // SECURITY: Check brute-force lockout (5 attempts / 15 min)
+              const lockoutWindow = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+              const { count: failedAttempts } = await supabase
+                .from("pin_attempt_logs")
+                .select("*", { count: "exact", head: true })
                 .eq("user_id", user.id)
-                .single();
+                .eq("organization_id", project.organization_id)
+                .eq("success", false)
+                .gte("attempted_at", lockoutWindow);
 
-              if (!pinData) {
+              if ((failedAttempts || 0) >= 5) {
                 allowed = false;
-                denialReason = "Security PIN not configured for this user";
+                denialReason = "Too many failed PIN attempts. Try again later.";
               } else {
-                // Verify PIN using database function (SHA-256 comparison)
-                const { data: isValid, error: pinError } = await supabase
-                  .rpc("verify_security_pin", { pin: security_pin, stored_hash: pinData.pin_hash });
+                // Server-side PIN verification via database
+                const { data: pinData } = await supabase
+                  .from("admin_security_pins")
+                  .select("pin_hash")
+                  .eq("organization_id", project.organization_id)
+                  .eq("user_id", user.id)
+                  .single();
 
-                if (pinError || !isValid) {
+                if (!pinData) {
                   allowed = false;
-                  denialReason = "Invalid security PIN";
+                  denialReason = "Security PIN not configured for this user";
+                } else {
+                  const { data: isValid, error: pinError } = await supabase
+                    .rpc("verify_security_pin", { pin: security_pin, stored_hash: pinData.pin_hash });
 
-                  // Log failed PIN attempt
-                  await supabase.from("audit_logs").insert({
+                  // Log attempt
+                  await supabase.from("pin_attempt_logs").insert({
                     user_id: user.id,
                     organization_id: project.organization_id,
-                    action: "security_pin_failed",
-                    resource_type: "security_pin",
-                    metadata: {
-                      session_id,
-                      step_number: step.step_number,
-                      action_template_id: step.action_template_id,
-                    },
+                    success: !!(isValid && !pinError),
                   });
+
+                  if (pinError || !isValid) {
+                    allowed = false;
+                    denialReason = "Invalid security PIN";
+
+                    await supabase.from("audit_logs").insert({
+                      user_id: user.id,
+                      organization_id: project.organization_id,
+                      action: "security_pin_failed",
+                      resource_type: "security_pin",
+                      metadata: {
+                        session_id,
+                        step_number: step.step_number,
+                        action_template_id: step.action_template_id,
+                      },
+                    });
+                  }
                 }
               }
             }
@@ -482,11 +502,11 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error:", error);
+    console.error("execute-plan error:", error);
     const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Internal server error" }),
-      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { ...errorCorsHeaders, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Content-Type": "application/json" } }
     );
   }
 });

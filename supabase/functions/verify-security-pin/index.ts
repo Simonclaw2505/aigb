@@ -3,11 +3,22 @@
  * Server-side verification of admin security PIN
  * 
  * SECURITY: Uses strict CORS allowlist - see _shared/cors.ts for details
+ * SECURITY: Brute-force protection with lockout after 5 failed attempts
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { validateCors, getCorsHeaders } from "../_shared/cors.ts";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
+// Security headers
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+};
 
 interface VerifyPinRequest {
   pin: string;
@@ -15,18 +26,15 @@ interface VerifyPinRequest {
 }
 
 serve(async (req) => {
-  // SECURITY: Validate CORS
   const cors = validateCors(req);
   if (cors.response) return cors.response;
-  
-  const corsHeaders = cors.headers;
+  const corsHeaders = { ...cors.headers, ...SECURITY_HEADERS };
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from auth header
     const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
     if (!authHeader) {
       return new Response(
@@ -61,6 +69,36 @@ serve(async (req) => {
       );
     }
 
+    // SECURITY: Check for brute-force lockout
+    const lockoutWindow = new Date(Date.now() - LOCKOUT_MINUTES * 60 * 1000).toISOString();
+    const { count: failedAttempts } = await supabase
+      .from("pin_attempt_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("organization_id", organization_id)
+      .eq("success", false)
+      .gte("attempted_at", lockoutWindow);
+
+    if ((failedAttempts || 0) >= MAX_ATTEMPTS) {
+      // Log the blocked attempt
+      await supabase.from("audit_logs").insert({
+        user_id: user.id,
+        organization_id,
+        action: "security_pin_locked_out",
+        resource_type: "security_pin",
+        metadata: { failed_attempts: failedAttempts, lockout_minutes: LOCKOUT_MINUTES },
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: `Too many failed attempts. Try again in ${LOCKOUT_MINUTES} minutes.`,
+          valid: false,
+          locked_out: true,
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get stored PIN hash for this user
     const { data: pinData, error: pinError } = await supabase
       .from("admin_security_pins")
@@ -88,7 +126,14 @@ serve(async (req) => {
       );
     }
 
-    // Log the verification attempt
+    // Log the attempt in pin_attempt_logs
+    await supabase.from("pin_attempt_logs").insert({
+      user_id: user.id,
+      organization_id,
+      success: !!isValid,
+    });
+
+    // Log in audit_logs
     await supabase.from("audit_logs").insert({
       user_id: user.id,
       organization_id,
@@ -102,11 +147,11 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error:", error);
+    console.error("verify-security-pin error:", error);
     const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: "Internal server error", valid: false }),
-      { status: 500, headers: { ...errorCorsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...errorCorsHeaders, ...SECURITY_HEADERS, "Content-Type": "application/json" } }
     );
   }
 });
