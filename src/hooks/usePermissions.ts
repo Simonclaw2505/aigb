@@ -51,6 +51,7 @@ export interface UserPermissionRule {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  agent_id: string | null;
 }
 
 export interface PermissionEvaluation {
@@ -241,9 +242,7 @@ export function useUserPermissionRules(organizationId: string | null) {
     rule: Omit<UserPermissionRule, "id" | "created_at" | "updated_at">
   ) => {
     try {
-      const { data, error: insertError } = await supabase
-        .from("user_permission_rules")
-        .insert({
+      const insertData: any = {
           organization_id: rule.organization_id,
           name: rule.name,
           description: rule.description,
@@ -256,7 +255,12 @@ export function useUserPermissionRules(organizationId: string | null) {
           conditions: JSON.parse(JSON.stringify(rule.conditions)),
           priority: rule.priority,
           is_active: rule.is_active,
-        })
+        };
+      if ((rule as any).agent_id) insertData.agent_id = (rule as any).agent_id;
+
+      const { data, error: insertError } = await supabase
+        .from("user_permission_rules")
+        .insert(insertData)
         .select()
         .single();
 
@@ -276,20 +280,23 @@ export function useUserPermissionRules(organizationId: string | null) {
 
   const updateRule = async (id: string, updates: Partial<UserPermissionRule>) => {
     try {
+      const updateData: any = {
+        name: updates.name,
+        description: updates.description,
+        subject_role: updates.subject_role,
+        resource_type: updates.resource_type,
+        resource_id: updates.resource_id,
+        action: updates.action,
+        effect: updates.effect,
+        conditions: updates.conditions ? JSON.parse(JSON.stringify(updates.conditions)) : undefined,
+        priority: updates.priority,
+        is_active: updates.is_active,
+      };
+      if ('agent_id' in updates) updateData.agent_id = updates.agent_id;
+
       const { error: updateError } = await supabase
         .from("user_permission_rules")
-        .update({
-          name: updates.name,
-          description: updates.description,
-          subject_role: updates.subject_role,
-          resource_type: updates.resource_type,
-          resource_id: updates.resource_id,
-          action: updates.action,
-          effect: updates.effect,
-          conditions: updates.conditions ? JSON.parse(JSON.stringify(updates.conditions)) : undefined,
-          priority: updates.priority,
-          is_active: updates.is_active,
-        })
+        .update(updateData)
         .eq("id", id);
 
       if (updateError) throw updateError;

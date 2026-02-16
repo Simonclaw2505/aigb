@@ -173,6 +173,26 @@ serve(async (req) => {
       }
     }
 
+    // Determine agent-specific role (if user is an agent member)
+    let agentId: string | null = null;
+    if (action_template_id) {
+      const { data: tpl } = await supabase
+        .from("action_templates")
+        .select("project_id")
+        .eq("id", action_template_id)
+        .single();
+      agentId = tpl?.project_id || null;
+    }
+
+    let effectiveRole: string | null = null;
+    if (agentId) {
+      const { data: agentRole } = await supabase.rpc("get_agent_role", {
+        _user_id: user.id,
+        _agent_id: agentId,
+      });
+      if (agentRole) effectiveRole = agentRole;
+    }
+
     // Evaluate user permissions using the database function
     const { data: evaluation, error: evalError } = await supabase.rpc("evaluate_permission", {
       _user_id: user.id,
@@ -180,7 +200,7 @@ serve(async (req) => {
       _resource_type: resource_type,
       _resource_id: resource_id || null,
       _action: action,
-      _context: context,
+      _context: { ...context, agent_role: effectiveRole },
     });
 
     if (evalError) {

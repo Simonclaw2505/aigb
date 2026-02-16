@@ -304,6 +304,41 @@ export type Database = {
           },
         ]
       }
+      agent_members: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_members_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_tools: {
         Row: {
           agent_id: string
@@ -1603,6 +1638,7 @@ export type Database = {
       user_permission_rules: {
         Row: {
           action: string
+          agent_id: string | null
           conditions: Json | null
           created_at: string
           created_by: string | null
@@ -1621,6 +1657,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          agent_id?: string | null
           conditions?: Json | null
           created_at?: string
           created_by?: string | null
@@ -1639,6 +1676,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          agent_id?: string | null
           conditions?: Json | null
           created_at?: string
           created_by?: string | null
@@ -1656,6 +1694,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_permission_rules_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_permission_rules_organization_id_fkey"
             columns: ["organization_id"]
@@ -1716,6 +1761,10 @@ export type Database = {
           requires_approval: boolean
           requires_confirmation: boolean
         }[]
+      }
+      get_agent_role: {
+        Args: { _agent_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
       }
       get_org_role: {
         Args: { _org_id: string; _user_id: string }

@@ -29,11 +29,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ProjectSetup } from "@/components/onboarding/ProjectSetup";
 import { ManageAgentToolsDialog } from "@/components/agents/ManageAgentToolsDialog";
+import { ManageAgentMembersDialog } from "@/components/agents/ManageAgentMembersDialog";
 import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2, Wrench } from "lucide-react";
+import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2, Wrench, Users } from "lucide-react";
 
 // Status badge variants
 const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -55,6 +56,7 @@ export default function Projects() {
   const [isCreating, setIsCreating] = useState(false);
   const [agentToolsMap, setAgentToolsMap] = useState<Record<string, LinkedTool[]>>({});
   const [manageToolsAgent, setManageToolsAgent] = useState<{ id: string; name: string } | null>(null);
+  const [manageMembersAgent, setManageMembersAgent] = useState<{ id: string; name: string } | null>(null);
 
   const { user } = useAuth();
   const {
@@ -314,6 +316,15 @@ export default function Projects() {
                           <Wrench className="h-4 w-4 mr-2" />
                           Gérer les outils
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setManageMembersAgent({ id: project.id, name: project.name });
+                          }}
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          Gérer les membres
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {project.status === "draft" && (
                           <DropdownMenuItem onClick={(e) => handleStatusChange(project.id, "active", e)}>
@@ -387,6 +398,17 @@ export default function Projects() {
           agentName={manageToolsAgent.name}
           organizationId={organization.id}
           onChanged={fetchAgentTools}
+        />
+      )}
+
+      {/* Manage members dialog */}
+      {manageMembersAgent && organization && (
+        <ManageAgentMembersDialog
+          open={!!manageMembersAgent}
+          onOpenChange={(open) => !open && setManageMembersAgent(null)}
+          agentId={manageMembersAgent.id}
+          agentName={manageMembersAgent.name}
+          organizationId={organization.id}
         />
       )}
     </DashboardLayout>
