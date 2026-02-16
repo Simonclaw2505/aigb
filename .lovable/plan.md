@@ -1,134 +1,104 @@
 
+# Refonte de la page Permissions : Roles par agent avec outils et actions
 
-# Cles d'operateur : Identites sans compte pour les utilisateurs d'agents
+## Probleme actuel
 
-## Concept
+La page Permissions affiche encore les anciens roles organisationnels (owner, admin, member, viewer) avec des types de ressources generiques. Elle ne reflete pas le nouveau systeme d'operateurs lies aux agents.
 
-L'admin cree des "operateurs" (personnes de l'entreprise) directement dans AIGB. Chaque operateur recoit une cle unique (ex: `aigb_op_xxxxxxxx`). Ces operateurs sont lies a un ou plusieurs agents avec un role specifique.
+## Nouvelle approche
 
-Quand quelqu'un demande une action a l'agent et que celle-ci exige une verification de role, le systeme demande la cle de verification. La cle identifie l'operateur, son role sur l'agent, et le systeme verifie les permissions.
-
-**Aucun compte utilisateur n'est necessaire pour les operateurs.**
+Transformer la page Permissions en une vue centree sur l'agent selectionne, qui affiche :
+1. Les **roles des operateurs** de cet agent (extraits de `operator_keys`)
+2. Pour chaque role, les **outils** et **actions autorisees** (seulement celles deja configurees pour l'agent via `action_templates`)
 
 ## Flux utilisateur
 
 ```text
-1. Admin va dans Agents > [Mon Agent] > "Gerer les operateurs"
-2. Clique "Ajouter un operateur"
-3. Saisit : Nom (ex: "Jean Dupont"), Role (admin/operator/viewer)
-4. Le systeme genere une cle unique : aigb_op_xxxxxxxxxx
-5. L'admin copie la cle et la transmet a Jean (elle ne sera plus jamais affichee)
-
---- Plus tard ---
-
-6. Jean (ou un agent IA agissant pour Jean) demande une action
-7. L'action a une politique "require_confirmation" ou "require_approval"
-8. Le systeme demande : "Veuillez saisir votre cle de verification"
-9. Jean entre sa cle
-10. Le systeme identifie Jean, verifie son role, et autorise ou refuse
+Permissions > Selectionner un agent
+  -> Voir les roles existants (Admin, Operator, Viewer + roles custom)
+  -> Cliquer sur un role pour voir/editer ses droits
+  -> Cocher les outils accessibles et les actions autorisees par outil
+  -> Seules les actions deja validees pour l'agent apparaissent
 ```
+
+## Ce qui change dans l'interface
+
+### 1. Selecteur d'agent en haut de page
+- Dropdown pour choisir l'agent (comme sur la page Actions)
+- Affiche les roles et permissions uniquement pour cet agent
+
+### 2. Vue des roles de l'agent
+- Afficher les roles distincts trouves dans `operator_keys` pour l'agent (ex: admin, member, viewer)
+- Bouton pour ajouter un nouveau role (qui sera disponible lors de la creation d'operateurs)
+- Chaque role est une carte cliquable/expandable
+
+### 3. Matrice role -> outils -> actions
+Pour chaque role, afficher :
+- Les **outils lies a l'agent** (via `agent_tools` + `api_sources`)
+- Pour chaque outil, les **actions configurees** (via `action_templates` pour cet agent)
+- Des checkboxes pour autoriser/refuser chaque action par role
+- Cela cree/modifie des entrees dans `user_permission_rules` avec le bon `agent_id`, `subject_role` et `resource_id` (l'action)
+
+### 4. Conservation de l'onglet Audit Logs
+- L'onglet "Audit Logs" reste inchange
 
 ## Modifications techniques
 
-### 1. Migration SQL - Table `operator_keys`
+### Fichier `src/pages/Permissions.tsx`
+- Ajouter un selecteur d'agent en haut (comme les autres pages)
+- Passer l'agent selectionne au composant de permissions
 
-Nouvelle table `operator_keys` :
+### Fichier `src/components/permissions/UserPermissionsPanel.tsx` (refonte)
+- Remplacer la vue RBAC generique par une vue centree sur les roles operateurs
+- Charger les roles distincts depuis `operator_keys` pour l'agent selectionne
+- Charger les outils lies a l'agent (`agent_tools` + `api_sources`)
+- Charger les actions configurees (`action_templates` pour cet agent)
+- Afficher une matrice : lignes = actions groupees par outil, colonnes = roles
+- Checkboxes pour definir les permissions
+- Chaque modification cree/met a jour une regle `user_permission_rules` avec `agent_id`, `subject_role`, `resource_type: "action"`, `resource_id: action_template.id`, `action: "execute"`, `effect: "allow" ou "deny"`
 
-| Colonne | Type | Description |
-|---------|------|-------------|
-| id | uuid | PK |
-| agent_id | uuid | FK vers projects (l'agent) |
-| organization_id | uuid | FK vers organizations |
-| name | text | Nom de l'operateur (ex: "Jean Dupont") |
-| role | app_role | Role sur cet agent (admin/member/viewer) |
-| key_hash | text | Hash SHA-256 de la cle |
-| key_prefix | text | Prefixe visible (ex: "aigb_op_xxxxxx") |
-| is_active | boolean | Cle active ou revoquee |
-| last_used_at | timestamptz | Derniere utilisation |
-| usage_count | integer | Compteur d'utilisations |
-| created_by | uuid | Admin qui a cree l'operateur |
-| created_at | timestamptz | Date de creation |
+### Fichier `src/hooks/usePermissions.ts`
+- Ajouter un hook `useAgentRoles(agentId)` pour recuperer les roles distincts depuis `operator_keys`
+- Ajouter un hook `useAgentActions(agentId)` pour recuperer les outils + actions configurees
+- Modifier `useUserPermissionRules` pour accepter un filtre par `agent_id`
 
-Contrainte unique sur `key_hash`. Index sur `agent_id`.
+### Migration SQL (aucune necessaire)
+Les tables existantes supportent deja tout :
+- `operator_keys` contient les roles par agent
+- `user_permission_rules` a deja `agent_id`, `subject_role`, `resource_id`
+- `action_templates` + `agent_tools` + `api_sources` permettent de lister les actions par agent
 
-Politiques RLS :
-- Les admins/owners de l'org peuvent tout faire (ALL)
-- Les membres de l'org peuvent voir (SELECT)
+## Structure de la matrice de permissions
 
-On supprime la table `agent_members` qui n'est plus pertinente (les operateurs n'ont pas de `user_id`).
+```text
+Agent: "Sales Bot"
+  
+  Role: Admin
+    [x] Outil "Stripe" 
+        [x] create-refund
+        [x] get-payment
+    [x] Outil "CRM"
+        [x] update-contact
+        [x] delete-contact
+  
+  Role: Operator  
+    [x] Outil "Stripe"
+        [ ] create-refund    <- pas autorise
+        [x] get-payment
+    [x] Outil "CRM"
+        [x] update-contact
+        [ ] delete-contact   <- pas autorise
+  
+  Role: Viewer
+    [x] Outil "Stripe"
+        [x] get-payment      <- lecture seule
+    [ ] Outil "CRM"          <- aucun acces
+```
 
-Ajout d'une fonction SQL `get_operator_by_key_hash(hash text)` qui retourne l'operateur correspondant.
-
-### 2. Refactoring du dialog "Gerer les membres" en "Gerer les operateurs"
-
-Remplacer `ManageAgentMembersDialog.tsx` par `ManageOperatorsDialog.tsx` :
-
-- **Liste** des operateurs existants de l'agent (nom, role, prefixe de cle, derniere utilisation, statut)
-- **Ajouter un operateur** : formulaire avec Nom + Role, genere la cle et l'affiche une seule fois (meme UX que les API Keys)
-- **Modifier le role** d'un operateur existant
-- **Revoquer/Supprimer** un operateur
-
-### 3. Mise a jour de la page Agents (Projects.tsx)
-
-- Renommer le menu "Gerer les membres" en "Gerer les operateurs"
-- Icone `KeyRound` au lieu de `Users`
-
-### 4. Suppression du TeamPanel
-
-La page Settings > Team qui gerait les membres org avec comptes n'est plus necessaire pour ce flux. On la retire de `Settings.tsx`.
-
-### 5. Integration dans le Simulateur et l'action-runner
-
-Quand une action exige une verification de role :
-
-**Simulateur (frontend)** :
-- Apres le dry-run, si une etape a `requires_confirmation` ou `requires_approval`, afficher un champ "Cle de verification" au lieu de simplement un bouton Confirm
-- A la soumission de la cle, appeler une edge function `verify-operator-key` qui retourne le nom de l'operateur et son role
-- Afficher "Identifie comme : Jean Dupont (Operator)" et verifier si le role autorise l'action
-
-**Edge function `verify-operator-key`** :
-- Recoit `{ key, agent_id }`
-- Hash la cle, cherche dans `operator_keys`
-- Retourne `{ valid, operator_name, role, operator_id }` ou erreur
-- Met a jour `last_used_at` et `usage_count`
-
-**Edge function `evaluate-permission`** :
-- Ajouter un parametre optionnel `operator_key_hash` dans le contexte
-- Si present, resoudre le role depuis `operator_keys` au lieu de `agent_members`
-- Evaluer les regles de permission avec ce role
-
-**Edge function `action-runner`** :
-- Accepter un header `X-Operator-Key` en plus de `X-API-Key` et `Authorization`
-- Si `X-Operator-Key` est fourni, identifier l'operateur et utiliser son role pour l'evaluation des permissions
-
-### 6. Mise a jour des permissions (UserPermissionsPanel)
-
-- Le champ "Agent" scope reste pertinent
-- Le champ "Role" fait maintenant reference au role de l'operateur sur l'agent
-- Les regles s'appliquent aux operateurs identifies par leur cle
-
-## Fichiers modifies
+## Fichiers concernes
 
 | Fichier | Modification |
 |---------|-------------|
-| Migration SQL | Creer `operator_keys`, supprimer `agent_members`, fonction `get_operator_by_key_hash` |
-| `src/components/agents/ManageAgentMembersDialog.tsx` | Remplacer par `ManageOperatorsDialog.tsx` : creer des operateurs avec cles |
-| `src/pages/Projects.tsx` | Renommer "Gerer les membres" en "Gerer les operateurs" |
-| `src/pages/Settings.tsx` | Retirer l'onglet "Team" |
-| `src/components/settings/TeamPanel.tsx` | Supprime |
-| `src/pages/Simulator.tsx` | Ajouter champ "Cle de verification" pour les etapes qui exigent une verification de role |
-| `supabase/functions/verify-operator-key/index.ts` | Nouvelle edge function pour verifier une cle operateur |
-| `supabase/functions/evaluate-permission/index.ts` | Supporter le contexte `operator_key_hash` pour resoudre le role |
-| `supabase/functions/action-runner/index.ts` | Supporter le header `X-Operator-Key` |
-
-## Resume du modele
-
-```text
-Organization (admin connecte)
-  └── Agents
-       ├── Tools (outils lies)
-       ├── Actions (politique, quotas, environnements)
-       └── Operateurs (nom + role + cle unique)
-            └── Verification a la demande via la cle
-```
-
+| `src/pages/Permissions.tsx` | Ajout selecteur d'agent, passage du contexte |
+| `src/components/permissions/UserPermissionsPanel.tsx` | Refonte complete : vue roles operateurs + matrice outils/actions |
+| `src/hooks/usePermissions.ts` | Nouveaux hooks `useAgentRoles`, `useAgentActions`, filtre par agent |
