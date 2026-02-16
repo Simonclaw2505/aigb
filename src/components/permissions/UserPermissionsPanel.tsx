@@ -1,506 +1,199 @@
 /**
- * User Permissions Panel
- * RBAC matrix + ABAC rule builder
+ * User Permissions Panel — Agent-centric role/tool/action matrix
  */
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Plus, Trash2, Shield, Filter, CheckCircle, XCircle } from "lucide-react";
-import { useUserPermissionRules, UserPermissionRule } from "@/hooks/usePermissions";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Shield, Wrench, ChevronDown, ChevronRight, Info } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  useAgentRoles,
+  useAgentToolsAndActions,
+  useAgentPermissionRules,
+} from "@/hooks/useAgentPermissions";
 import type { Database } from "@/integrations/supabase/types";
 
-type PolicyEffect = Database["public"]["Enums"]["policy_effect"];
 type AppRole = Database["public"]["Enums"]["app_role"];
 
-const allRoles: AppRole[] = ["owner", "admin", "member", "viewer"];
-const resourceTypes = ["action", "project", "endpoint", "api_source", "export"];
-const actions = ["execute", "read", "write", "delete", "export", "manage"];
-
-interface AgentOption {
-  id: string;
-  name: string;
-}
-
 interface UserPermissionsPanelProps {
+  agentId: string;
   organizationId: string;
-  agents?: AgentOption[];
 }
 
-export function UserPermissionsPanel({ organizationId, agents = [] }: UserPermissionsPanelProps) {
-  const { rules, loading, createRule, updateRule, deleteRule } = useUserPermissionRules(organizationId);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<UserPermissionRule | null>(null);
-  const [activeTab, setActiveTab] = useState("rules");
+const roleBadgeVariant = (role: AppRole) => {
+  switch (role) {
+    case "owner": return "default";
+    case "admin": return "default";
+    case "member": return "secondary";
+    case "viewer": return "outline";
+    default: return "outline";
+  }
+};
 
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    subject_role: "" as AppRole | "",
-    resource_type: "action",
-    action: "execute",
-    effect: "allow" as PolicyEffect,
-    conditions: "{}",
-    priority: 0,
-    is_active: true,
-    agent_id: "" as string,
-  });
+const riskBadge = (risk: string) => {
+  switch (risk) {
+    case "critical": return "destructive";
+    case "high": return "destructive";
+    case "medium": return "secondary";
+    default: return "outline";
+  }
+};
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      subject_role: "",
-      resource_type: "action",
-      action: "execute",
-      effect: "allow",
-      conditions: "{}",
-      priority: 0,
-      is_active: true,
-      agent_id: "",
+export function UserPermissionsPanel({ agentId, organizationId }: UserPermissionsPanelProps) {
+  const { roles, loading: rolesLoading } = useAgentRoles(agentId);
+  const { tools, loading: toolsLoading } = useAgentToolsAndActions(agentId);
+  const { isAllowed, togglePermission, loading: permsLoading } = useAgentPermissionRules(agentId, organizationId);
+  const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
+
+  const loading = rolesLoading || toolsLoading || permsLoading;
+
+  const toggleExpanded = (role: string) => {
+    setExpandedRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(role)) next.delete(role);
+      else next.add(role);
+      return next;
     });
-    setEditingRule(null);
   };
-
-  const handleEdit = (rule: UserPermissionRule) => {
-    setEditingRule(rule);
-    setFormData({
-      name: rule.name,
-      description: rule.description || "",
-      subject_role: rule.subject_role || "",
-      resource_type: rule.resource_type,
-      action: rule.action,
-      effect: rule.effect,
-      conditions: JSON.stringify(rule.conditions, null, 2),
-      priority: rule.priority,
-      is_active: rule.is_active,
-      agent_id: (rule as any).agent_id || "",
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    let parsedConditions = {};
-    try {
-      parsedConditions = JSON.parse(formData.conditions);
-    } catch {
-      return; // Invalid JSON
-    }
-
-    try {
-      if (editingRule) {
-        await updateRule(editingRule.id, {
-          name: formData.name,
-          description: formData.description || null,
-          subject_role: formData.subject_role || null,
-          resource_type: formData.resource_type,
-          action: formData.action,
-          effect: formData.effect,
-          conditions: parsedConditions,
-          priority: formData.priority,
-          is_active: formData.is_active,
-          agent_id: formData.agent_id || null,
-        });
-      } else {
-        await createRule({
-          organization_id: organizationId,
-          name: formData.name,
-          description: formData.description || null,
-          subject_role: formData.subject_role || null,
-          subject_user_id: null,
-          resource_type: formData.resource_type,
-          resource_id: null,
-          action: formData.action,
-          effect: formData.effect,
-          conditions: parsedConditions,
-          priority: formData.priority,
-          is_active: formData.is_active,
-          agent_id: formData.agent_id || null,
-        });
-      }
-      setIsDialogOpen(false);
-      resetForm();
-    } catch {
-      // Error handled in hook
-    }
-  };
-
-  // Build RBAC matrix
-  const rbacMatrix = allRoles.map(role => {
-    const roleRules = rules.filter(r => r.subject_role === role);
-    const permissions: Record<string, PolicyEffect | null> = {};
-    
-    for (const action of actions) {
-      const matchingRule = roleRules.find(r => r.action === action);
-      permissions[action] = matchingRule?.effect || null;
-    }
-    
-    return { role, permissions, rules: roleRules };
-  });
 
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="animate-pulse text-muted-foreground">Loading permissions...</div>
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (roles.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <Shield className="h-12 w-12 text-muted-foreground/40 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            Aucun rôle opérateur trouvé pour cet agent.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Ajoutez des opérateurs depuis la page Agents pour configurer les permissions.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (tools.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <Wrench className="h-12 w-12 text-muted-foreground/40 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            Aucun outil avec des actions configurées pour cet agent.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Liez des outils et créez des actions depuis les pages Outils et Actions.
+          </p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-              <Users className="h-5 w-5 text-amber-500" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">User Permissions</CardTitle>
-              <CardDescription>Configure role-based (RBAC) and attribute-based (ABAC) access rules</CardDescription>
-            </div>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Rule
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{editingRule ? "Edit Permission Rule" : "Add Permission Rule"}</DialogTitle>
-                <DialogDescription>
-                  Create RBAC or ABAC rules to control user access
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-                <div className="space-y-2">
-                  <Label>Rule Name *</Label>
-                  <Input
-                    placeholder="e.g., Members can execute read-only actions"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Input
-                    placeholder="Optional description"
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Subject Role</Label>
-                    <Select
-                      value={formData.subject_role || "all"}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, subject_role: v === "all" ? "" : v as AppRole }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All roles" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        {allRoles.map((role) => (
-                          <SelectItem key={role} value={role} className="capitalize">
-                            {role}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Effect</Label>
-                    <Select
-                      value={formData.effect}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, effect: v as PolicyEffect }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="allow">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                            Allow
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="deny">
-                          <div className="flex items-center gap-2">
-                            <XCircle className="h-4 w-4 text-red-500" />
-                            Deny
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Resource Type</Label>
-                    <Select
-                      value={formData.resource_type}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, resource_type: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {resourceTypes.map((type) => (
-                          <SelectItem key={type} value={type} className="capitalize">
-                            {type.replace("_", " ")}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Action</Label>
-                    <Select
-                      value={formData.action}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, action: v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {actions.map((action) => (
-                          <SelectItem key={action} value={action} className="capitalize">
-                            {action}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {agents.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Agent (scope)</Label>
-                    <Select
-                      value={formData.agent_id || "all"}
-                      onValueChange={(v) => setFormData(prev => ({ ...prev, agent_id: v === "all" ? "" : v }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tous les agents" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tous les agents</SelectItem>
-                        {agents.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id}>
-                            {agent.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Optionnel : restreindre cette règle à un agent spécifique
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    ABAC Conditions (JSON)
-                  </Label>
-                  <Textarea
-                    placeholder='{"region": {"eq": "user.region"}, "amount": {"lte": 10000}}'
-                    value={formData.conditions}
-                    onChange={(e) => setFormData(prev => ({ ...prev, conditions: e.target.value }))}
-                    rows={4}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Operators: eq, ne, gt, gte, lt, lte, in, contains
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Priority</Label>
-                    <Input
-                      type="number"
-                      value={formData.priority}
-                      onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) || 0 }))}
-                    />
-                    <p className="text-xs text-muted-foreground">Higher = evaluated first</p>
-                  </div>
-
-                  <div className="space-y-2 flex items-end">
-                    <label className="flex items-center gap-2">
-                      <Switch
-                        checked={formData.is_active}
-                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
-                      />
-                      <span>Active</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={!formData.name}>
-                  {editingRule ? "Update" : "Create"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="matrix">
-              <Shield className="h-4 w-4 mr-2" />
-              RBAC Matrix
-            </TabsTrigger>
-            <TabsTrigger value="rules">
-              <Filter className="h-4 w-4 mr-2" />
-              All Rules ({rules.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="matrix">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Role</TableHead>
-                  {actions.map((action) => (
-                    <TableHead key={action} className="text-center capitalize">
-                      {action}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rbacMatrix.map(({ role, permissions }) => (
-                  <TableRow key={role}>
-                    <TableCell className="font-medium capitalize">{role}</TableCell>
-                    {actions.map((action) => {
-                      const perm = permissions[action];
-                      return (
-                        <TableCell key={action} className="text-center">
-                          {perm === "allow" ? (
-                            <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
-                          ) : perm === "deny" ? (
-                            <XCircle className="h-4 w-4 text-red-500 mx-auto" />
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <p className="text-xs text-muted-foreground mt-4">
-              This matrix shows explicitly configured permissions. Owners have full access by default.
+    <div className="space-y-4">
+      <Card className="bg-muted/30 border-dashed">
+        <CardContent className="py-3">
+          <div className="flex items-start gap-3">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              Cochez les actions autorisées pour chaque rôle opérateur. Seules les actions validées pour cet agent apparaissent, groupées par outil.
             </p>
-          </TabsContent>
+          </div>
+        </CardContent>
+      </Card>
 
-          <TabsContent value="rules">
-            {rules.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Filter className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  No permission rules configured yet.
-                  <br />
-                  Default role-based access applies.
-                </p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rule</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Resource</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Effect</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rules.map((rule) => (
-                    <TableRow key={rule.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{rule.name}</p>
-                          {rule.description && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                              {rule.description}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {rule.subject_role || "All"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {(rule as any).agent_id ? (
-                          <Badge variant="secondary" className="text-xs">
-                            {agents.find(a => a.id === (rule as any).agent_id)?.name || "Agent"}
+      {roles.map((role) => {
+        const isExpanded = expandedRoles.has(role);
+        return (
+          <Collapsible key={role} open={isExpanded} onOpenChange={() => toggleExpanded(role)}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <Badge variant={roleBadgeVariant(role)} className="capitalize text-sm">
+                        {role}
+                      </Badge>
+                      <CardDescription className="text-xs">
+                        {tools.reduce((sum, t) => sum + t.actions.length, 0)} actions disponibles
+                      </CardDescription>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {tools.reduce((sum, t) => {
+                        return sum + t.actions.filter((a) => isAllowed(role, a.id)).length;
+                      }, 0)} autorisées
+                    </div>
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0 pb-4">
+                  <div className="space-y-4">
+                    {tools.map((tool) => (
+                      <div key={tool.toolId} className="border rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Wrench className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">{tool.toolName}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {tool.actions.length} actions
                           </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">Tous</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="capitalize">{rule.resource_type}</TableCell>
-                      <TableCell className="capitalize">{rule.action}</TableCell>
-                      <TableCell>
-                        <Badge variant={rule.effect === "allow" ? "default" : "destructive"}>
-                          {rule.effect}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{rule.priority}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive"
-                            onClick={() => deleteRule(rule.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                        <div className="space-y-2 pl-6">
+                          {tool.actions.map((action) => {
+                            const allowed = isAllowed(role, action.id);
+                            return (
+                              <label
+                                key={action.id}
+                                className="flex items-center gap-3 py-1.5 px-2 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
+                              >
+                                <Checkbox
+                                  checked={allowed}
+                                  onCheckedChange={(checked) => {
+                                    togglePermission(role, action.id, action.name, !!checked);
+                                  }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-mono">{action.name}</span>
+                                    <Badge variant={riskBadge(action.risk_level)} className="text-[10px] px-1.5 py-0">
+                                      {action.risk_level}
+                                    </Badge>
+                                  </div>
+                                  {action.description && (
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {action.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })}
+    </div>
   );
 }
