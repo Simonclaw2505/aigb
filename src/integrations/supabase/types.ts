@@ -1528,6 +1528,63 @@ export type Database = {
           },
         ]
       }
+      tool_library: {
+        Row: {
+          auth_header_name: string | null
+          auth_instructions: string | null
+          auth_type: string
+          base_url: string
+          category: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          endpoints: Json | null
+          extra_headers: Json | null
+          id: string
+          is_published: boolean | null
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          auth_header_name?: string | null
+          auth_instructions?: string | null
+          auth_type?: string
+          base_url: string
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          endpoints?: Json | null
+          extra_headers?: Json | null
+          id?: string
+          is_published?: boolean | null
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          auth_header_name?: string | null
+          auth_instructions?: string | null
+          auth_type?: string
+          base_url?: string
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          endpoints?: Json | null
+          extra_headers?: Json | null
+          id?: string
+          is_published?: boolean | null
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_permission_rules: {
         Row: {
           action: string

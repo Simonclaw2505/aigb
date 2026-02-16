@@ -3,7 +3,8 @@
  * Import OpenAPI specifications via file upload, URL, or paste
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,10 @@ interface ApiSource {
 }
 
 export default function Import() {
+  const [searchParams] = useSearchParams();
+  const librarySlug = searchParams.get("library");
   const [importMode, setImportMode] = useState<"manual" | "openapi">("manual");
+  const [libraryData, setLibraryData] = useState<any>(null);
   const [specUrl, setSpecUrl] = useState("");
   const [specJson, setSpecJson] = useState("");
   const [activeTab, setActiveTab] = useState("upload");
@@ -131,6 +135,23 @@ export default function Import() {
   useEffect(() => {
     fetchApiSources();
   }, [fetchApiSources]);
+
+  // Fetch library tool if slug is present
+  useEffect(() => {
+    if (!librarySlug) return;
+    setImportMode("manual");
+    (async () => {
+      const { data, error } = await supabase
+        .from("tool_library")
+        .select("*")
+        .eq("slug", librarySlug)
+        .eq("is_published", true)
+        .single();
+      if (!error && data) {
+        setLibraryData(data);
+      }
+    })();
+  }, [librarySlug]);
 
   // Delete an API source with cascade
   const handleDeleteApiSource = async (sourceId: string) => {
@@ -337,6 +358,22 @@ export default function Import() {
           <ManualApiConfig
             projectId={currentProject?.id || ""}
             organizationId={organization?.id || ""}
+            initialData={libraryData ? {
+              name: libraryData.name,
+              baseUrl: libraryData.base_url,
+              description: libraryData.description || "",
+              authType: libraryData.auth_type,
+              authHeaderName: libraryData.auth_header_name || "Authorization",
+              extraHeaders: libraryData.extra_headers && Object.keys(libraryData.extra_headers).length > 0
+                ? JSON.stringify(libraryData.extra_headers, null, 2) : "",
+              endpoints: (libraryData.endpoints || []).map((ep: any) => ({
+                id: crypto.randomUUID(),
+                method: ep.method,
+                path: ep.path,
+                name: ep.name || `${ep.method} ${ep.path}`,
+                description: ep.description || "",
+              })),
+            } : undefined}
             onSuccess={() => {
               fetchApiSources();
             }}

@@ -43,22 +43,33 @@ interface TestResult {
   error?: string;
 }
 
+interface InitialData {
+  name: string;
+  baseUrl: string;
+  description?: string;
+  authType?: string;
+  authHeaderName?: string;
+  extraHeaders?: string;
+  endpoints?: ManualEndpoint[];
+}
+
 interface ManualApiConfigProps {
   projectId: string;
   organizationId: string;
   onSuccess?: () => void;
+  initialData?: InitialData;
 }
 
-export function ManualApiConfig({ projectId, organizationId, onSuccess }: ManualApiConfigProps) {
+export function ManualApiConfig({ projectId, organizationId, onSuccess, initialData }: ManualApiConfigProps) {
   const { toast } = useToast();
-  const [baseUrl, setBaseUrl] = useState("");
-  const [apiName, setApiName] = useState("");
-  const [apiDescription, setApiDescription] = useState("");
-  const [authType, setAuthType] = useState("bearer");
-  const [authHeaderName, setAuthHeaderName] = useState("Authorization");
+  const [baseUrl, setBaseUrl] = useState(initialData?.baseUrl || "");
+  const [apiName, setApiName] = useState(initialData?.name || "");
+  const [apiDescription, setApiDescription] = useState(initialData?.description || "");
+  const [authType, setAuthType] = useState(initialData?.authType || "bearer");
+  const [authHeaderName, setAuthHeaderName] = useState(initialData?.authHeaderName || "Authorization");
   const [authValue, setAuthValue] = useState("");
-  const [extraHeaders, setExtraHeaders] = useState("");
-  const [endpoints, setEndpoints] = useState<ManualEndpoint[]>([]);
+  const [extraHeaders, setExtraHeaders] = useState(initialData?.extraHeaders || "");
+  const [endpoints, setEndpoints] = useState<ManualEndpoint[]>(initialData?.endpoints || []);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
