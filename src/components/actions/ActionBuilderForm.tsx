@@ -25,6 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Wand2,
   AlertTriangle,
@@ -38,6 +39,9 @@ import {
   Sparkles,
   Save,
   RotateCcw,
+  Bot,
+  Clock,
+  Globe,
 } from "lucide-react";
 import type { RiskLevel, ActionExample, ActionConstraints } from "@/lib/action-suggestions";
 
@@ -55,6 +59,11 @@ export interface ActionFormData {
   version: number;
   isEnabled: boolean;
   requiresApproval: boolean;
+  agentPolicy: 'allow' | 'deny' | 'require_confirmation' | 'require_approval';
+  approvalRoles: string[];
+  maxExecutionsPerHour?: number;
+  maxExecutionsPerDay?: number;
+  allowedEnvironments: string[];
 }
 
 interface ActionBuilderFormProps {
@@ -570,6 +579,123 @@ export function ActionBuilderForm({
               </Button>
             )}
           </div>
+
+          {/* Agent Policy */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Bot className="h-4 w-4" />
+                Agent Policy
+              </CardTitle>
+              <CardDescription>How the agent interacts with this action</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-xs">Policy</Label>
+                <Select
+                  value={formData.agentPolicy}
+                  onValueChange={(v) => updateField("agentPolicy", v as ActionFormData["agentPolicy"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="allow">Allow</SelectItem>
+                    <SelectItem value="deny">Deny</SelectItem>
+                    <SelectItem value="require_confirmation">Require Confirmation</SelectItem>
+                    <SelectItem value="require_approval">Require Approval</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.agentPolicy === "require_approval" && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Approval Roles</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {["owner", "admin", "member", "viewer"].map((role) => (
+                      <label key={role} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={formData.approvalRoles.includes(role)}
+                          onCheckedChange={(checked) => {
+                            const next = checked
+                              ? [...formData.approvalRoles, role]
+                              : formData.approvalRoles.filter((r) => r !== role);
+                            updateField("approvalRoles", next);
+                          }}
+                        />
+                        <span className="capitalize">{role}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Execution Quotas */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Execution Quotas
+              </CardTitle>
+              <CardDescription>Limit how often this action can run</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">Max / Hour</Label>
+                  <Input
+                    type="number"
+                    value={formData.maxExecutionsPerHour ?? ""}
+                    onChange={(e) =>
+                      updateField("maxExecutionsPerHour", e.target.value ? parseInt(e.target.value) : undefined)
+                    }
+                    placeholder="No limit"
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">Max / Day</Label>
+                  <Input
+                    type="number"
+                    value={formData.maxExecutionsPerDay ?? ""}
+                    onChange={(e) =>
+                      updateField("maxExecutionsPerDay", e.target.value ? parseInt(e.target.value) : undefined)
+                    }
+                    placeholder="No limit"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Allowed Environments */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Allowed Environments
+              </CardTitle>
+              <CardDescription>Where this action can be executed</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-4">
+                {["development", "staging", "production"].map((env) => (
+                  <label key={env} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={formData.allowedEnvironments.includes(env)}
+                      onCheckedChange={(checked) => {
+                        const next = checked
+                          ? [...formData.allowedEnvironments, env]
+                          : formData.allowedEnvironments.filter((e) => e !== env);
+                        updateField("allowedEnvironments", next);
+                      }}
+                    />
+                    <span className="capitalize">{env}</span>
+                  </label>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid gap-6 md:grid-cols-2">
             {/* Rate Limit */}

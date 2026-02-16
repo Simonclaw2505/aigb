@@ -90,6 +90,11 @@ interface ActionTemplate {
   output_schema: any;
   examples: any[];
   constraints: any;
+  agent_policy: string;
+  approval_roles: string[];
+  max_executions_per_hour: number | null;
+  max_executions_per_day: number | null;
+  allowed_environments: string[];
 }
 
 export default function Actions() {
@@ -291,6 +296,11 @@ export default function Actions() {
       version: 1,
       isEnabled: true,
       requiresApproval: suggestion.riskLevel === "irreversible",
+      agentPolicy: "allow",
+      approvalRoles: ["owner", "admin"],
+      maxExecutionsPerHour: undefined,
+      maxExecutionsPerDay: undefined,
+      allowedEnvironments: ["development", "staging", "production"],
     };
   };
 
@@ -310,6 +320,11 @@ export default function Actions() {
       version: action.version,
       isEnabled: action.is_enabled,
       requiresApproval: action.requires_approval,
+      agentPolicy: (action.agent_policy as ActionFormData["agentPolicy"]) || "allow",
+      approvalRoles: action.approval_roles || ["owner", "admin"],
+      maxExecutionsPerHour: action.max_executions_per_hour ?? undefined,
+      maxExecutionsPerDay: action.max_executions_per_day ?? undefined,
+      allowedEnvironments: action.allowed_environments || ["development", "staging", "production"],
     };
   };
 
@@ -335,6 +350,11 @@ export default function Actions() {
         constraints: JSON.parse(JSON.stringify(formData.constraints)),
         version: editingAction ? editingAction.version + 1 : 1,
         auto_generated: !editingAction,
+        agent_policy: formData.agentPolicy as "allow" | "deny" | "require_confirmation" | "require_approval",
+        approval_roles: formData.approvalRoles as ("owner" | "admin" | "member" | "viewer")[],
+        max_executions_per_hour: formData.maxExecutionsPerHour ?? null,
+        max_executions_per_day: formData.maxExecutionsPerDay ?? null,
+        allowed_environments: formData.allowedEnvironments as ("development" | "staging" | "production")[],
       };
 
       if (editingAction) {
@@ -432,6 +452,11 @@ export default function Actions() {
         constraints: action.constraints,
         version: 1,
         auto_generated: false,
+        agent_policy: action.agent_policy as "allow" | "deny" | "require_confirmation" | "require_approval",
+        approval_roles: action.approval_roles as ("owner" | "admin" | "member" | "viewer")[],
+        max_executions_per_hour: action.max_executions_per_hour,
+        max_executions_per_day: action.max_executions_per_day,
+        allowed_environments: action.allowed_environments as ("development" | "staging" | "production")[],
       };
       
       const { error } = await supabase.from("action_templates").insert(duplicateData);
@@ -481,6 +506,11 @@ export default function Actions() {
           constraints: JSON.parse(JSON.stringify(formData.constraints)),
           version: 1,
           auto_generated: true,
+          agent_policy: formData.agentPolicy as "allow" | "deny" | "require_confirmation" | "require_approval",
+          approval_roles: formData.approvalRoles as ("owner" | "admin" | "member" | "viewer")[],
+          max_executions_per_hour: formData.maxExecutionsPerHour ?? null,
+          max_executions_per_day: formData.maxExecutionsPerDay ?? null,
+          allowed_environments: formData.allowedEnvironments as ("development" | "staging" | "production")[],
         };
       });
 

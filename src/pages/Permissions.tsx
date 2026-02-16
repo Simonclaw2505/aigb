@@ -3,56 +3,19 @@
  * Two-layer permissions: Agent capabilities + User RBAC/ABAC
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Bot, Users, History, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Users, History, Loader2 } from "lucide-react";
 import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { ProjectBanner } from "@/components/layout/ProjectBanner";
-import { AgentCapabilitiesPanel } from "@/components/permissions/AgentCapabilitiesPanel";
 import { UserPermissionsPanel } from "@/components/permissions/UserPermissionsPanel";
 import { PermissionEvaluationLogs } from "@/components/permissions/PermissionEvaluationLogs";
 
-interface ActionTemplate {
-  id: string;
-  name: string;
-  description: string;
-  risk_level: string;
-}
-
 export default function Permissions() {
   const { currentProject, isLoading: projectLoading } = useCurrentProject();
-  const [actionTemplates, setActionTemplates] = useState<ActionTemplate[]>([]);
-  const [activeTab, setActiveTab] = useState("agent");
-
-  // Fetch action templates for current project
-  useEffect(() => {
-    const fetchActionTemplates = async () => {
-      if (!currentProject) {
-        setActionTemplates([]);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("action_templates")
-          .select("id, name, description, risk_level")
-          .eq("project_id", currentProject.id)
-          .eq("is_enabled", true)
-          .order("name");
-
-        if (error) throw error;
-        setActionTemplates(data || []);
-      } catch (err) {
-        console.error("Failed to fetch action templates:", err);
-      }
-    };
-
-    fetchActionTemplates();
-  }, [currentProject]);
+  const [activeTab, setActiveTab] = useState("user");
 
   if (projectLoading) {
     return (
@@ -68,20 +31,8 @@ export default function Permissions() {
     <DashboardLayout title="Permissions" description="Configure role-based access for actions">
       <ProjectBanner>
         <div className="space-y-6">
-          <div className="flex items-center gap-4">
-            <Badge variant="outline" className="gap-1">
-              <Shield className="h-3 w-3" />
-              {actionTemplates.length} actions
-            </Badge>
-          </div>
-
-          {/* Two-layer permissions tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
-              <TabsTrigger value="agent" className="gap-2">
-                <Bot className="h-4 w-4" />
-                Agent Capabilities
-              </TabsTrigger>
               <TabsTrigger value="user" className="gap-2">
                 <Users className="h-4 w-4" />
                 User Permissions
@@ -91,35 +42,6 @@ export default function Permissions() {
                 Audit Logs
               </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="agent" className="mt-6">
-              <div className="space-y-4">
-                <Card className="bg-muted/30 border-dashed">
-                  <CardContent className="py-4">
-                    <div className="flex items-start gap-3">
-                      <Bot className="h-5 w-5 text-primary mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium">Agent Capability Layer</p>
-                        <p className="text-sm text-muted-foreground">
-                          Control what the AI agent can do globally in this project. 
-                          Set policies like <Badge variant="secondary" className="mx-1">Allow</Badge>, 
-                          <Badge variant="secondary" className="mx-1">Deny</Badge>, 
-                          <Badge variant="secondary" className="mx-1">Require Confirmation</Badge>, or 
-                          <Badge variant="secondary" className="mx-1">Require Approval</Badge> for each action.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {currentProject && (
-                  <AgentCapabilitiesPanel
-                    projectId={currentProject.id}
-                    actionTemplates={actionTemplates}
-                  />
-                )}
-              </div>
-            </TabsContent>
 
             <TabsContent value="user" className="mt-6">
               <div className="space-y-4">
