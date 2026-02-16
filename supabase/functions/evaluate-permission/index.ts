@@ -86,25 +86,23 @@ serve(async (req) => {
       );
     }
 
-    // Check agent capabilities first (if action_template_id provided)
+    // Check agent policy from action_templates directly
     let agentPolicy = "allow";
     let requiresConfirmation = false;
     let requiresApproval = false;
     let approvalRoles: string[] = [];
 
     if (action_template_id) {
-      const { data: capability } = await supabase
-        .from("agent_capabilities")
-        .select("*")
-        .eq("action_template_id", action_template_id)
-        .eq("is_active", true)
+      const { data: template } = await supabase
+        .from("action_templates")
+        .select("agent_policy, approval_roles, max_executions_per_hour, max_executions_per_day, allowed_environments")
+        .eq("id", action_template_id)
         .single();
 
-      if (capability) {
-        agentPolicy = capability.policy;
+      if (template) {
+        agentPolicy = template.agent_policy || "allow";
 
         if (agentPolicy === "deny") {
-          // Log the denial
           await supabase.from("permission_evaluations").insert({
             organization_id: organizationId,
             user_id: user.id,
@@ -114,7 +112,7 @@ serve(async (req) => {
             requested_action: action,
             evaluation_result: "deny",
             matched_rules: [],
-            evaluation_details: { reason: "Agent capability denied", capability_id: capability.id },
+            evaluation_details: { reason: "Agent policy denied on action template" },
             requires_confirmation: false,
             requires_approval: false,
           });
@@ -122,7 +120,7 @@ serve(async (req) => {
           return new Response(
             JSON.stringify({
               allowed: false,
-              reason: "Action is denied by agent capability policy",
+              reason: "Action is denied by agent policy",
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
@@ -134,45 +132,39 @@ serve(async (req) => {
 
         if (agentPolicy === "require_approval") {
           requiresApproval = true;
-          approvalRoles = capability.approval_roles || ["owner", "admin"];
+          approvalRoles = template.approval_roles || ["owner", "admin"];
         }
 
         // Check rate limits
-        if (capability.max_executions_per_hour || capability.max_executions_per_day) {
+        if (template.max_executions_per_hour || template.max_executions_per_day) {
           const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
           const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-          if (capability.max_executions_per_hour) {
+          if (template.max_executions_per_hour) {
             const { count } = await supabase
               .from("execution_runs")
               .select("*", { count: "exact", head: true })
               .eq("action_template_id", action_template_id)
               .gte("created_at", hourAgo);
 
-            if ((count || 0) >= capability.max_executions_per_hour) {
+            if ((count || 0) >= template.max_executions_per_hour) {
               return new Response(
-                JSON.stringify({
-                  allowed: false,
-                  reason: "Hourly rate limit exceeded",
-                }),
+                JSON.stringify({ allowed: false, reason: "Hourly rate limit exceeded" }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } }
               );
             }
           }
 
-          if (capability.max_executions_per_day) {
+          if (template.max_executions_per_day) {
             const { count } = await supabase
               .from("execution_runs")
               .select("*", { count: "exact", head: true })
               .eq("action_template_id", action_template_id)
               .gte("created_at", dayAgo);
 
-            if ((count || 0) >= capability.max_executions_per_day) {
+            if ((count || 0) >= template.max_executions_per_day) {
               return new Response(
-                JSON.stringify({
-                  allowed: false,
-                  reason: "Daily rate limit exceeded",
-                }),
+                JSON.stringify({ allowed: false, reason: "Daily rate limit exceeded" }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } }
               );
             }

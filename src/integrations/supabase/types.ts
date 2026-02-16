@@ -48,6 +48,9 @@ export type Database = {
       }
       action_templates: {
         Row: {
+          agent_policy: Database["public"]["Enums"]["agent_capability_policy"]
+          allowed_environments: Database["public"]["Enums"]["environment_type"][]
+          approval_roles: Database["public"]["Enums"]["app_role"][]
           auto_generated: boolean
           constraints: Json | null
           created_at: string
@@ -63,6 +66,8 @@ export type Database = {
           is_enabled: boolean
           is_idempotent: boolean
           is_reversible: boolean
+          max_executions_per_day: number | null
+          max_executions_per_hour: number | null
           name: string
           output_schema: Json | null
           project_id: string
@@ -78,6 +83,9 @@ export type Database = {
           version: number
         }
         Insert: {
+          agent_policy?: Database["public"]["Enums"]["agent_capability_policy"]
+          allowed_environments?: Database["public"]["Enums"]["environment_type"][]
+          approval_roles?: Database["public"]["Enums"]["app_role"][]
           auto_generated?: boolean
           constraints?: Json | null
           created_at?: string
@@ -93,6 +101,8 @@ export type Database = {
           is_enabled?: boolean
           is_idempotent?: boolean
           is_reversible?: boolean
+          max_executions_per_day?: number | null
+          max_executions_per_hour?: number | null
           name: string
           output_schema?: Json | null
           project_id: string
@@ -108,6 +118,9 @@ export type Database = {
           version?: number
         }
         Update: {
+          agent_policy?: Database["public"]["Enums"]["agent_capability_policy"]
+          allowed_environments?: Database["public"]["Enums"]["environment_type"][]
+          approval_roles?: Database["public"]["Enums"]["app_role"][]
           auto_generated?: boolean
           constraints?: Json | null
           created_at?: string
@@ -123,6 +136,8 @@ export type Database = {
           is_enabled?: boolean
           is_idempotent?: boolean
           is_reversible?: boolean
+          max_executions_per_day?: number | null
+          max_executions_per_hour?: number | null
           name?: string
           output_schema?: Json | null
           project_id?: string
