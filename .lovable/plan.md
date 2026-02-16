@@ -1,121 +1,134 @@
 
 
-# Gestion des utilisateurs, roles par agent et permissions par role
+# Cles d'operateur : Identites sans compte pour les utilisateurs d'agents
 
-## Constat actuel
+## Concept
 
-Aujourd'hui, les utilisateurs n'ont qu'un role global au niveau de l'organisation (owner/admin/member/viewer via `organization_members`). Il n'y a pas de moyen de :
-- Voir/gerer les membres de l'equipe
-- Assigner un utilisateur a un agent specifique
-- Donner un role different selon l'agent
-- Definir quelles actions un role peut executer sur un agent donne
+L'admin cree des "operateurs" (personnes de l'entreprise) directement dans AIGB. Chaque operateur recoit une cle unique (ex: `aigb_op_xxxxxxxx`). Ces operateurs sont lies a un ou plusieurs agents avec un role specifique.
 
-## Approche UX proposee
+Quand quelqu'un demande une action a l'agent et que celle-ci exige une verification de role, le systeme demande la cle de verification. La cle identifie l'operateur, son role sur l'agent, et le systeme verifie les permissions.
 
-Le flux intuitif en 3 niveaux :
+**Aucun compte utilisateur n'est necessaire pour les operateurs.**
 
-1. **Page "Team"** (nouvelle) : gerer les membres de l'organisation (inviter, voir, changer le role org)
-2. **Page Agents** : sur chaque agent, assigner des membres avec un role specifique a cet agent
-3. **Page Permissions** : definir quelles actions chaque role peut executer (scope par agent)
-
-### Flux utilisateur concret
+## Flux utilisateur
 
 ```text
-Settings > Team
-  -> Voir tous les membres de l'orga
-  -> Inviter un nouveau membre par email
-  -> Changer son role org (owner/admin/member/viewer)
+1. Admin va dans Agents > [Mon Agent] > "Gerer les operateurs"
+2. Clique "Ajouter un operateur"
+3. Saisit : Nom (ex: "Jean Dupont"), Role (admin/operator/viewer)
+4. Le systeme genere une cle unique : aigb_op_xxxxxxxxxx
+5. L'admin copie la cle et la transmet a Jean (elle ne sera plus jamais affichee)
 
-Agents > [Mon Agent] > Menu "Gerer les membres"
-  -> Voir qui a acces a cet agent
-  -> Ajouter un membre de l'orga a l'agent
-  -> Lui donner un role specifique pour cet agent (admin/operator/viewer)
+--- Plus tard ---
 
-Permissions > User Permissions
-  -> Les regles RBAC/ABAC existantes, mais scopees par agent
-  -> "Le role operator peut executer les actions read_only sur cet agent"
+6. Jean (ou un agent IA agissant pour Jean) demande une action
+7. L'action a une politique "require_confirmation" ou "require_approval"
+8. Le systeme demande : "Veuillez saisir votre cle de verification"
+9. Jean entre sa cle
+10. Le systeme identifie Jean, verifie son role, et autorise ou refuse
 ```
 
 ## Modifications techniques
 
-### 1. Migration SQL - Nouvelles tables
+### 1. Migration SQL - Table `operator_keys`
 
-**Table `agent_members`** : lie un utilisateur a un agent avec un role specifique
+Nouvelle table `operator_keys` :
 
 | Colonne | Type | Description |
 |---------|------|-------------|
 | id | uuid | PK |
-| agent_id | uuid | FK vers projects |
-| user_id | uuid | FK vers auth.users |
-| role | app_role | Role de l'utilisateur sur cet agent |
-| created_at | timestamptz | Date d'ajout |
-| created_by | uuid | Qui a ajoute ce membre |
+| agent_id | uuid | FK vers projects (l'agent) |
+| organization_id | uuid | FK vers organizations |
+| name | text | Nom de l'operateur (ex: "Jean Dupont") |
+| role | app_role | Role sur cet agent (admin/member/viewer) |
+| key_hash | text | Hash SHA-256 de la cle |
+| key_prefix | text | Prefixe visible (ex: "aigb_op_xxxxxx") |
+| is_active | boolean | Cle active ou revoquee |
+| last_used_at | timestamptz | Derniere utilisation |
+| usage_count | integer | Compteur d'utilisations |
+| created_by | uuid | Admin qui a cree l'operateur |
+| created_at | timestamptz | Date de creation |
 
-Contrainte unique sur (agent_id, user_id).
+Contrainte unique sur `key_hash`. Index sur `agent_id`.
 
 Politiques RLS :
-- Les admins/owners de l'org peuvent gerer les membres d'agent
-- Les membres de l'org peuvent voir les membres d'agent
+- Les admins/owners de l'org peuvent tout faire (ALL)
+- Les membres de l'org peuvent voir (SELECT)
 
-**Fonction `get_agent_role`** : retourne le role d'un utilisateur sur un agent donne (utile pour les RLS et le moteur de permissions).
+On supprime la table `agent_members` qui n'est plus pertinente (les operateurs n'ont pas de `user_id`).
 
-### 2. Page Team dans Settings
+Ajout d'une fonction SQL `get_operator_by_key_hash(hash text)` qui retourne l'operateur correspondant.
 
-Ajouter un onglet **"Team"** dans `Settings.tsx` :
+### 2. Refactoring du dialog "Gerer les membres" en "Gerer les operateurs"
 
-- Liste des membres de l'organisation avec leur email, nom, role org, date d'ajout
-- Bouton "Inviter" qui ouvre un dialog avec : champ email + selecteur de role
-- L'invitation cree un enregistrement `organization_members` (l'utilisateur doit avoir un compte)
-- Actions : modifier le role, retirer de l'organisation
+Remplacer `ManageAgentMembersDialog.tsx` par `ManageOperatorsDialog.tsx` :
 
-### 3. Dialog "Gerer les membres" sur les Agents
+- **Liste** des operateurs existants de l'agent (nom, role, prefixe de cle, derniere utilisation, statut)
+- **Ajouter un operateur** : formulaire avec Nom + Role, genere la cle et l'affiche une seule fois (meme UX que les API Keys)
+- **Modifier le role** d'un operateur existant
+- **Revoquer/Supprimer** un operateur
 
-Ajouter dans le menu contextuel de chaque agent (a cote de "Gerer les outils") une option **"Gerer les membres"**.
+### 3. Mise a jour de la page Agents (Projects.tsx)
 
-Le dialog `ManageAgentMembersDialog` :
-- Liste les membres actuels de l'agent avec leur role
-- Selecteur pour ajouter un membre de l'org (combo avec les membres pas encore assignes)
-- Selecteur de role par agent (admin / operator / viewer)
-- Bouton supprimer pour retirer un membre
+- Renommer le menu "Gerer les membres" en "Gerer les operateurs"
+- Icone `KeyRound` au lieu de `Users`
 
-### 4. Mise a jour de la page Permissions
+### 4. Suppression du TeamPanel
 
-Modifier `UserPermissionsPanel` pour :
-- Ajouter un champ optionnel "Agent" (scope) dans le formulaire de creation de regle
-- Permettre de dire "Ce role sur cet agent peut executer ces actions"
-- Afficher la colonne "Agent" dans le tableau des regles
+La page Settings > Team qui gerait les membres org avec comptes n'est plus necessaire pour ce flux. On la retire de `Settings.tsx`.
 
-Cela reutilise la table `user_permission_rules` existante en ajoutant une colonne optionnelle `agent_id` pour scoper les regles.
+### 5. Integration dans le Simulateur et l'action-runner
 
-### 5. Integration dans evaluate-permission
+Quand une action exige une verification de role :
 
-Modifier la edge function pour :
-- Verifier si l'utilisateur est membre de l'agent concerne
-- Utiliser le role agent (pas le role org) pour evaluer les regles scopees par agent
-- Fallback sur le role org si pas de role agent specifique
+**Simulateur (frontend)** :
+- Apres le dry-run, si une etape a `requires_confirmation` ou `requires_approval`, afficher un champ "Cle de verification" au lieu de simplement un bouton Confirm
+- A la soumission de la cle, appeler une edge function `verify-operator-key` qui retourne le nom de l'operateur et son role
+- Afficher "Identifie comme : Jean Dupont (Operator)" et verifier si le role autorise l'action
+
+**Edge function `verify-operator-key`** :
+- Recoit `{ key, agent_id }`
+- Hash la cle, cherche dans `operator_keys`
+- Retourne `{ valid, operator_name, role, operator_id }` ou erreur
+- Met a jour `last_used_at` et `usage_count`
+
+**Edge function `evaluate-permission`** :
+- Ajouter un parametre optionnel `operator_key_hash` dans le contexte
+- Si present, resoudre le role depuis `operator_keys` au lieu de `agent_members`
+- Evaluer les regles de permission avec ce role
+
+**Edge function `action-runner`** :
+- Accepter un header `X-Operator-Key` en plus de `X-API-Key` et `Authorization`
+- Si `X-Operator-Key` est fourni, identifier l'operateur et utiliser son role pour l'evaluation des permissions
+
+### 6. Mise a jour des permissions (UserPermissionsPanel)
+
+- Le champ "Agent" scope reste pertinent
+- Le champ "Role" fait maintenant reference au role de l'operateur sur l'agent
+- Les regles s'appliquent aux operateurs identifies par leur cle
 
 ## Fichiers modifies
 
 | Fichier | Modification |
 |---------|-------------|
-| Migration SQL | Table `agent_members`, fonction `get_agent_role`, colonne `agent_id` sur `user_permission_rules` |
-| `src/pages/Settings.tsx` | Nouvel onglet "Team" avec liste des membres et invitation |
-| `src/components/settings/TeamPanel.tsx` | Nouveau composant : liste, invite, gestion des membres org |
-| `src/pages/Projects.tsx` | Option "Gerer les membres" dans le menu contextuel des agents |
-| `src/components/agents/ManageAgentMembersDialog.tsx` | Nouveau composant : assigner des membres a un agent avec un role |
-| `src/components/permissions/UserPermissionsPanel.tsx` | Ajout du champ "Agent" (optionnel) dans le formulaire de regle |
-| `src/components/layout/AppSidebar.tsx` | Pas de changement (Team est dans Settings) |
-| `supabase/functions/evaluate-permission/index.ts` | Prendre en compte le role agent et les regles scopees |
+| Migration SQL | Creer `operator_keys`, supprimer `agent_members`, fonction `get_operator_by_key_hash` |
+| `src/components/agents/ManageAgentMembersDialog.tsx` | Remplacer par `ManageOperatorsDialog.tsx` : creer des operateurs avec cles |
+| `src/pages/Projects.tsx` | Renommer "Gerer les membres" en "Gerer les operateurs" |
+| `src/pages/Settings.tsx` | Retirer l'onglet "Team" |
+| `src/components/settings/TeamPanel.tsx` | Supprime |
+| `src/pages/Simulator.tsx` | Ajouter champ "Cle de verification" pour les etapes qui exigent une verification de role |
+| `supabase/functions/verify-operator-key/index.ts` | Nouvelle edge function pour verifier une cle operateur |
+| `supabase/functions/evaluate-permission/index.ts` | Supporter le contexte `operator_key_hash` pour resoudre le role |
+| `supabase/functions/action-runner/index.ts` | Supporter le header `X-Operator-Key` |
 
-## Recapitulatif du modele de donnees
+## Resume du modele
 
 ```text
-Organization
-  └── Members (role org: owner/admin/member/viewer)
-       └── Agents
-            ├── Tools (outils lies)
-            ├── Actions (avec politique, quotas, environnements)
-            └── Agent Members (role par agent: admin/operator/viewer)
-                 └── Permissions (regles RBAC/ABAC scopees par agent + role)
+Organization (admin connecte)
+  └── Agents
+       ├── Tools (outils lies)
+       ├── Actions (politique, quotas, environnements)
+       └── Operateurs (nom + role + cle unique)
+            └── Verification a la demande via la cle
 ```
 
