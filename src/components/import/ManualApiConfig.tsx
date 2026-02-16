@@ -203,6 +203,26 @@ export function ManualApiConfig({ projectId, organizationId, onSuccess, initialD
 
       if (sourceError) throw sourceError;
 
+      // Store API key as secret if provided
+      let credentialSecretId: string | null = null;
+      if (authValue.trim() && authType !== "none") {
+        const { data: secretData, error: secretError } = await supabase
+          .from("secrets")
+          .insert({
+            organization_id: organizationId,
+            project_id: projectId,
+            name: `${apiName.trim()}_credential`,
+            description: `API credential for ${apiName.trim()}`,
+            encrypted_value: authValue.trim(),
+            is_active: true,
+          })
+          .select("id")
+          .single();
+
+        if (secretError) throw secretError;
+        credentialSecretId = secretData.id;
+      }
+
       // Create connector
       const authConfig: Record<string, string> = { header_name: authHeaderName };
       if (authType === "bearer") authConfig.prefix = "Bearer";
@@ -224,6 +244,7 @@ export function ManualApiConfig({ projectId, organizationId, onSuccess, initialD
           auth_type: authType,
           auth_config: authConfig,
           default_headers: parsedExtraHeaders,
+          credential_secret_id: credentialSecretId,
           is_active: true,
         });
 
