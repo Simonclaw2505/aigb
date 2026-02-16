@@ -1,104 +1,59 @@
 
-# Refonte de la page Permissions : Roles par agent avec outils et actions
 
-## Probleme actuel
+# Suppression du PIN a 6 chiffres et unification avec les cles operateur
 
-La page Permissions affiche encore les anciens roles organisationnels (owner, admin, member, viewer) avec des types de ressources generiques. Elle ne reflete pas le nouveau systeme d'operateurs lies aux agents.
+## Probleme
 
-## Nouvelle approche
+Le simulateur contient deux systemes de verification en parallele :
+1. **PIN a 6 chiffres** (`SecurityPinDialog`) -- ancien systeme, demande un code que personne n'a configure
+2. **Cle operateur** (`ConfirmActionDialog` avec verification via `verify-operator-key`) -- nouveau systeme, fonctionnel
 
-Transformer la page Permissions en une vue centree sur l'agent selectionne, qui affiche :
-1. Les **roles des operateurs** de cet agent (extraits de `operator_keys`)
-2. Pour chaque role, les **outils** et **actions autorisees** (seulement celles deja configurees pour l'agent via `action_templates`)
+Quand `evaluate-permission` retourne `requires_security_pin: true`, le simulateur ouvre le dialogue de PIN au lieu d'utiliser la cle operateur. C'est pourquoi vous voyez cette demande de PIN incomprehensible.
 
-## Flux utilisateur
+## Solution
 
-```text
-Permissions > Selectionner un agent
-  -> Voir les roles existants (Admin, Operator, Viewer + roles custom)
-  -> Cliquer sur un role pour voir/editer ses droits
-  -> Cocher les outils accessibles et les actions autorisees par outil
-  -> Seules les actions deja validees pour l'agent apparaissent
-```
+Supprimer entierement le systeme de PIN et rediriger toutes les verifications de role vers le systeme de cles operateur existant.
 
-## Ce qui change dans l'interface
+## Modifications
 
-### 1. Selecteur d'agent en haut de page
-- Dropdown pour choisir l'agent (comme sur la page Actions)
-- Affiche les roles et permissions uniquement pour cet agent
+### 1. `src/pages/Simulator.tsx`
 
-### 2. Vue des roles de l'agent
-- Afficher les roles distincts trouves dans `operator_keys` pour l'agent (ex: admin, member, viewer)
-- Bouton pour ajouter un nouveau role (qui sera disponible lors de la creation d'operateurs)
-- Chaque role est une carte cliquable/expandable
+- Supprimer l'import de `SecurityPinDialog`
+- Supprimer les etats `pinDialogOpen`, `pinActionStep`, `pinVerifiedForSession`, `securityPin`
+- Supprimer les fonctions `stepNeedsPin`, `getStepsNeedingPin`, `openPinDialog`, `handlePinVerify`
+- Supprimer le composant `SecurityPinDialog` du rendu
+- Traiter `requires_security_pin` de la meme facon que `requires_confirmation` : ouvrir le `ConfirmActionDialog` avec `requiresOperatorKey: true`
+- Supprimer l'envoi de `security_pin` dans le body de `execute-plan`
 
-### 3. Matrice role -> outils -> actions
-Pour chaque role, afficher :
-- Les **outils lies a l'agent** (via `agent_tools` + `api_sources`)
-- Pour chaque outil, les **actions configurees** (via `action_templates` pour cet agent)
-- Des checkboxes pour autoriser/refuser chaque action par role
-- Cela cree/modifie des entrees dans `user_permission_rules` avec le bon `agent_id`, `subject_role` et `resource_id` (l'action)
+### 2. `supabase/functions/evaluate-permission/index.ts`
 
-### 4. Conservation de l'onglet Audit Logs
-- L'onglet "Audit Logs" reste inchange
+- Remplacer `requires_security_pin: true` par `requires_confirmation: true` (avec un flag `requires_operator_key`)
+- Ou simplement garder `requires_confirmation` qui declenche deja la verification par cle operateur dans le `ConfirmActionDialog`
 
-## Modifications techniques
+### 3. Fichiers a supprimer (nettoyage)
 
-### Fichier `src/pages/Permissions.tsx`
-- Ajouter un selecteur d'agent en haut (comme les autres pages)
-- Passer l'agent selectionne au composant de permissions
+- `src/components/security/SecurityPinDialog.tsx` -- plus utilise
+- `src/components/security/SecurityPinSetup.tsx` -- plus utilise
+- `src/hooks/useSecurityPin.ts` -- plus utilise
+- `supabase/functions/verify-security-pin/index.ts` -- plus utilise
 
-### Fichier `src/components/permissions/UserPermissionsPanel.tsx` (refonte)
-- Remplacer la vue RBAC generique par une vue centree sur les roles operateurs
-- Charger les roles distincts depuis `operator_keys` pour l'agent selectionne
-- Charger les outils lies a l'agent (`agent_tools` + `api_sources`)
-- Charger les actions configurees (`action_templates` pour cet agent)
-- Afficher une matrice : lignes = actions groupees par outil, colonnes = roles
-- Checkboxes pour definir les permissions
-- Chaque modification cree/met a jour une regle `user_permission_rules` avec `agent_id`, `subject_role`, `resource_type: "action"`, `resource_id: action_template.id`, `action: "execute"`, `effect: "allow" ou "deny"`
+### 4. `src/pages/Security.tsx`
 
-### Fichier `src/hooks/usePermissions.ts`
-- Ajouter un hook `useAgentRoles(agentId)` pour recuperer les roles distincts depuis `operator_keys`
-- Ajouter un hook `useAgentActions(agentId)` pour recuperer les outils + actions configurees
-- Modifier `useUserPermissionRules` pour accepter un filtre par `agent_id`
+- Retirer la section de configuration du PIN si elle existe encore
 
-### Migration SQL (aucune necessaire)
-Les tables existantes supportent deja tout :
-- `operator_keys` contient les roles par agent
-- `user_permission_rules` a deja `agent_id`, `subject_role`, `resource_id`
-- `action_templates` + `agent_tools` + `api_sources` permettent de lister les actions par agent
+## Resultat
 
-## Structure de la matrice de permissions
-
-```text
-Agent: "Sales Bot"
-  
-  Role: Admin
-    [x] Outil "Stripe" 
-        [x] create-refund
-        [x] get-payment
-    [x] Outil "CRM"
-        [x] update-contact
-        [x] delete-contact
-  
-  Role: Operator  
-    [x] Outil "Stripe"
-        [ ] create-refund    <- pas autorise
-        [x] get-payment
-    [x] Outil "CRM"
-        [x] update-contact
-        [ ] delete-contact   <- pas autorise
-  
-  Role: Viewer
-    [x] Outil "Stripe"
-        [x] get-payment      <- lecture seule
-    [ ] Outil "CRM"          <- aucun acces
-```
+Quand une action exige une verification de role, le simulateur affiche le `ConfirmActionDialog` avec le champ "Cle de verification" (qui appelle `verify-operator-key`). Plus aucune reference au PIN a 6 chiffres.
 
 ## Fichiers concernes
 
-| Fichier | Modification |
-|---------|-------------|
-| `src/pages/Permissions.tsx` | Ajout selecteur d'agent, passage du contexte |
-| `src/components/permissions/UserPermissionsPanel.tsx` | Refonte complete : vue roles operateurs + matrice outils/actions |
-| `src/hooks/usePermissions.ts` | Nouveaux hooks `useAgentRoles`, `useAgentActions`, filtre par agent |
+| Fichier | Action |
+|---------|--------|
+| `src/pages/Simulator.tsx` | Supprimer toute la logique PIN, unifier avec ConfirmActionDialog |
+| `supabase/functions/evaluate-permission/index.ts` | Remplacer `requires_security_pin` par `requires_confirmation` |
+| `src/components/security/SecurityPinDialog.tsx` | Supprimer |
+| `src/components/security/SecurityPinSetup.tsx` | Supprimer |
+| `src/hooks/useSecurityPin.ts` | Supprimer |
+| `supabase/functions/verify-security-pin/index.ts` | Supprimer |
+| `src/pages/Security.tsx` | Retirer la section PIN si presente |
+
