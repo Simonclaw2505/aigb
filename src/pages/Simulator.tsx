@@ -1032,6 +1032,8 @@ export default function Simulator() {
           actionName={confirmingStep.action_name}
           description={confirmingStep.description}
           estimatedImpact={confirmingStep.estimated_impact}
+          requiresOperatorKey={true}
+          agentId={selectedProjectId}
         />
       )}
 

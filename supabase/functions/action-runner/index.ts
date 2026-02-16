@@ -228,14 +228,16 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Authenticate: support both Bearer token and X-API-Key
+    // Authenticate: support Bearer token, X-API-Key, and X-Operator-Key
     const apiKey = req.headers.get("X-API-Key");
+    const operatorKey = req.headers.get("X-Operator-Key");
     const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "");
 
     let user: { id: string } | null = null;
     let authenticatedViaApiKey = false;
     let apiKeyProjectId: string | null = null;
     let apiKeyOrgId: string | null = null;
+    let operatorKeyHash: string | null = null;
 
     if (apiKey) {
       // API Key authentication for agents
@@ -295,6 +297,15 @@ serve(async (req) => {
         JSON.stringify({ error: "Unauthorized — provide Authorization or X-API-Key header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // If X-Operator-Key is provided, hash it for permission evaluation
+    if (operatorKey) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(operatorKey);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      operatorKeyHash = hashArray.map((b: number) => b.toString(16).padStart(2, "0")).join("");
     }
 
     const body: RunActionRequest = await req.json();

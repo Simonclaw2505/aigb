@@ -29,12 +29,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ProjectSetup } from "@/components/onboarding/ProjectSetup";
 import { ManageAgentToolsDialog } from "@/components/agents/ManageAgentToolsDialog";
-import { ManageAgentMembersDialog } from "@/components/agents/ManageAgentMembersDialog";
+import { ManageOperatorsDialog } from "@/components/agents/ManageOperatorsDialog";
 import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2, Wrench, Users } from "lucide-react";
+import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2, Wrench, KeyRound } from "lucide-react";
 
 // Status badge variants
 const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -56,7 +56,7 @@ export default function Projects() {
   const [isCreating, setIsCreating] = useState(false);
   const [agentToolsMap, setAgentToolsMap] = useState<Record<string, LinkedTool[]>>({});
   const [manageToolsAgent, setManageToolsAgent] = useState<{ id: string; name: string } | null>(null);
-  const [manageMembersAgent, setManageMembersAgent] = useState<{ id: string; name: string } | null>(null);
+  const [manageOperatorsAgent, setManageOperatorsAgent] = useState<{ id: string; name: string } | null>(null);
 
   const { user } = useAuth();
   const {
@@ -319,11 +319,11 @@ export default function Projects() {
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
-                            setManageMembersAgent({ id: project.id, name: project.name });
+                            setManageOperatorsAgent({ id: project.id, name: project.name });
                           }}
                         >
-                          <Users className="h-4 w-4 mr-2" />
-                          Gérer les membres
+                          <KeyRound className="h-4 w-4 mr-2" />
+                          Gérer les opérateurs
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {project.status === "draft" && (
@@ -401,13 +401,13 @@ export default function Projects() {
         />
       )}
 
-      {/* Manage members dialog */}
-      {manageMembersAgent && organization && (
-        <ManageAgentMembersDialog
-          open={!!manageMembersAgent}
-          onOpenChange={(open) => !open && setManageMembersAgent(null)}
-          agentId={manageMembersAgent.id}
-          agentName={manageMembersAgent.name}
+      {/* Manage operators dialog */}
+      {manageOperatorsAgent && organization && (
+        <ManageOperatorsDialog
+          open={!!manageOperatorsAgent}
+          onOpenChange={(open) => !open && setManageOperatorsAgent(null)}
+          agentId={manageOperatorsAgent.id}
+          agentName={manageOperatorsAgent.name}
           organizationId={organization.id}
         />
       )}
