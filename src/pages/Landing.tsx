@@ -95,7 +95,7 @@ export default function Landing() {
             </span>
           </h1>
           <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Gardez le contrôle sur vos agents IA. Dans un monde où l'IA est et sera omniprésente,
+            Gardez le contrôle sur vos agents IA. Dans un monde où l'IA devient omniprésente,
             AIGB optimise la bonne gouvernance de vos agents, et améliore la sécurité et la traçabilité de vos données.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
