@@ -1,31 +1,75 @@
 
 
-# Corriger l'erreur "Impossible de joindre le serveur" dans le Simulateur
+# Ajouter l'outil "Productive" a la bibliotheque
 
-## Cause du probleme
+## Donnees de la carte
 
-Les trois appels `fetch` vers les fonctions backend dans `src/pages/Simulator.tsx` n'incluent pas le header `apikey`, qui est **obligatoire** pour que la passerelle Supabase accepte la requete. Sans ce header, la requete est rejetee au niveau reseau avant meme d'atteindre la fonction, ce qui provoque une `TypeError: Failed to fetch` dans le navigateur.
+| Champ | Valeur |
+|---|---|
+| Nom | Productive |
+| Slug | productive |
+| Categorie | Productivite |
+| URL de base | `https://api.productive.io/api/v2` |
+| Type d'auth | custom (Header personnalise) |
+| Nom du header | X-Auth-Token |
+| Instructions d'auth | Generer un jeton API depuis Productive > Settings > API. Ajouter egalement l'ID de l'organisation dans le header X-Organization-Id. |
+| Headers supplementaires | `{"Content-Type": "application/vnd.api+json", "X-Organization-Id": "<org_id>"}` |
 
-Le test direct depuis le serveur fonctionne (la fonction repond correctement avec une erreur 403 d'acces au projet), ce qui confirme que les fonctions sont deployees et operationnelles.
+## Endpoints (34 entrees)
 
-## Correction
+Chaque ressource est declaree avec ses operations CRUD standard :
 
-**Fichier** : `src/pages/Simulator.tsx`
+- GET /activities -- Lister les activites
+- GET /approval_policies -- Lister les politiques de validation
+- GET /approval_policy_assignments -- Lister les affectations de validation
+- GET /approval_workflows -- Lister les workflows de validation
+- GET /attachments -- Lister les fichiers attaches
+- POST /attachments -- Creer un fichier attache
+- GET /automatic_invoicing_rules -- Lister les regles de facturation auto
+- GET /bank_accounts -- Lister les comptes bancaires
+- GET /bills -- Lister les factures fournisseurs
+- POST /bills -- Creer une facture fournisseur
+- GET /boards -- Lister les tableaux
+- GET /bookings -- Lister les reservations
+- POST /bookings -- Creer une reservation
+- GET /comments -- Lister les commentaires
+- POST /comments -- Creer un commentaire
+- GET /companies -- Lister les entreprises
+- POST /companies -- Creer une entreprise
+- GET /contact_entries -- Lister les contacts
+- POST /contact_entries -- Creer un contact
+- GET /contracts -- Lister les contrats
+- POST /contracts -- Creer un contrat
+- GET /deals -- Lister les budgets
+- POST /deals -- Creer un budget
+- GET /docs -- Lister les documents
+- POST /docs -- Creer un document
+- GET /invoices -- Lister les factures client
+- POST /invoices -- Creer une facture client
+- GET /people -- Lister les utilisateurs
+- GET /projects -- Lister les projets
+- POST /projects -- Creer un projet
+- GET /task_lists -- Lister les listes de taches
+- GET /tasks -- Lister les taches
+- POST /tasks -- Creer une tache
+- GET /time_entries -- Lister les saisies de temps
+- POST /time_entries -- Creer une saisie de temps
+- GET /workflows -- Lister les workflows
+- GET /work_types -- Lister les types de prestations
 
-Ajouter le header `apikey` dans les trois appels `fetch` existants :
+## Implementation technique
 
-1. **Ligne ~243** (appel a `generate-plan`) : ajouter `apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY`
-2. **Ligne ~291** (appel a `execute-plan` en mode dry_run) : meme ajout
-3. **Ligne ~380** (appel a `execute-plan` en mode execute) : meme ajout
+**Fichier** : `src/pages/Tools.tsx` (ou via appel direct Supabase)
 
-Exemple du changement pour chaque appel :
+Inserer une ligne dans la table `tool_library` via le client Supabase avec toutes les donnees ci-dessus. Cela peut se faire :
 
-```text
-headers: {
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${session?.access_token}`,
-  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,   // <-- ajout
-},
-```
+- **Option A** : Via une migration SQL avec un `INSERT INTO tool_library (...)` contenant toutes les valeurs
+- **Option B** : Via le code existant du `ToolLibraryForm` qui insere deja dans cette table
 
-Aucune autre modification n'est necessaire. Les fonctions backend sont correctement deployees et fonctionnelles.
+L'option A (migration SQL) est la plus fiable car elle garantit que l'outil est present en base sans dependre d'une action utilisateur.
+
+La migration SQL inserera un enregistrement avec :
+- Le champ `endpoints` en JSONB contenant les 37 entrees
+- Le champ `extra_headers` en JSONB avec Content-Type et X-Organization-Id
+- `is_published` a `true`
+
