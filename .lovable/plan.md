@@ -1,61 +1,31 @@
 
-# Diagnostic et amelioration des erreurs du Simulateur
 
-## Pourquoi "failed to fetch" ?
+# Corriger l'erreur "Impossible de joindre le serveur" dans le Simulateur
 
-Le probleme vient de la chaine d'appels entre les fonctions backend :
+## Cause du probleme
 
-1. **`execute-plan` appelle `action-runner` en interne** -- cet appel interne passe par le reseau et peut echouer pour plusieurs raisons (CORS entre fonctions, timeout, etc.)
-2. **Resolution du connecteur** : si l'action n'a pas de `endpoint_id` valide, ou si le connecteur API associe n'est pas actif/configure, l'appel API reel ne se fait pas
-3. **Messages d'erreur generiques** : les blocs `catch` des deux fonctions retournent "Internal server error" sans details, ce qui donne "failed to fetch" cote client sans aucune indication utile
+Les trois appels `fetch` vers les fonctions backend dans `src/pages/Simulator.tsx` n'incluent pas le header `apikey`, qui est **obligatoire** pour que la passerelle Supabase accepte la requete. Sans ce header, la requete est rejetee au niveau reseau avant meme d'atteindre la fonction, ce qui provoque une `TypeError: Failed to fetch` dans le navigateur.
 
-## Plan d'amelioration
+Le test direct depuis le serveur fonctionne (la fonction repond correctement avec une erreur 403 d'acces au projet), ce qui confirme que les fonctions sont deployees et operationnelles.
 
-### 1. Enrichir les erreurs dans `execute-plan` (backend)
-
-**Fichier** : `supabase/functions/execute-plan/index.ts`
-
-- Dans le bloc catch de l'appel a `action-runner` (lignes 395-408), ajouter le status HTTP, le corps de la reponse, et le nom de l'action dans le message d'erreur
-- Dans le catch global (lignes 446-453), retourner le message d'erreur reel au lieu de "Internal server error"
-- Ajouter des details sur le contexte de chaque step echoue (connector manquant, endpoint invalide, etc.)
-
-### 2. Enrichir les erreurs dans `action-runner` (backend)
-
-**Fichier** : `supabase/functions/action-runner/index.ts`
-
-- Quand aucun connecteur n'est trouve (ligne 470-478), ajouter un log explicite et inclure cette information dans la reponse
-- Dans le catch global (lignes 711-747), retourner le vrai message d'erreur au lieu de "Internal server error" (les donnees sensibles sont deja expurgees)
-- Ajouter un champ `debug_info` dans la reponse d'erreur avec :
-  - L'etape de la pipeline qui a echoue (auth, validation, connector lookup, API call)
-  - L'ID du connecteur utilise (ou "none")
-  - L'URL tentee (redactee)
-
-### 3. Ameliorer l'affichage des erreurs dans le Simulateur (frontend)
+## Correction
 
 **Fichier** : `src/pages/Simulator.tsx`
 
-- Modifier `handleGeneratePlan` pour afficher le `message` en plus de `error` quand ils sont differents
-- Modifier `runDryRun` pour capturer et afficher le detail des erreurs par step
-- Dans la section "Execution results" (lignes 842-884), ajouter un panneau d'erreur plus detaille avec :
-  - Le nom de l'action qui a echoue
-  - La raison precise (permission, connecteur absent, erreur API, etc.)
-  - Un conseil d'action ("Verifiez que le connecteur API est configure et actif")
+Ajouter le header `apikey` dans les trois appels `fetch` existants :
 
-### 4. Gerer le cas "failed to fetch" reseau
+1. **Ligne ~243** (appel a `generate-plan`) : ajouter `apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY`
+2. **Ligne ~291** (appel a `execute-plan` en mode dry_run) : meme ajout
+3. **Ligne ~380** (appel a `execute-plan` en mode execute) : meme ajout
 
-**Fichier** : `src/pages/Simulator.tsx`
-
-- Dans les trois appels `fetch` (generate-plan, dry-run, execute), differencier une erreur reseau (`TypeError: Failed to fetch`) d'une erreur serveur
-- Afficher un message specifique pour les erreurs reseau : "Impossible de joindre le serveur. Verifiez votre connexion ou reessayez."
-
-## Details techniques
-
-Les modifications sont reparties sur 3 fichiers :
+Exemple du changement pour chaque appel :
 
 ```text
-supabase/functions/execute-plan/index.ts   -- erreurs detaillees dans les reponses
-supabase/functions/action-runner/index.ts  -- champ debug_info + vrais messages d'erreur
-src/pages/Simulator.tsx                    -- affichage enrichi des erreurs
+headers: {
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${session?.access_token}`,
+  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,   // <-- ajout
+},
 ```
 
-Aucune modification de schema de base de donnees n'est necessaire.
+Aucune autre modification n'est necessaire. Les fonctions backend sont correctement deployees et fonctionnelles.
