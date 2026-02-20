@@ -270,7 +270,11 @@ export default function Simulator() {
       // Automatically run dry-run
       await runDryRun(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate plan");
+      if (err instanceof TypeError && err.message === "Failed to fetch") {
+        setError("Impossible de joindre le serveur. Vérifiez votre connexion ou réessayez.");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to generate plan");
+      }
       setPhase("input");
     }
   };
@@ -299,14 +303,18 @@ export default function Simulator() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Dry run failed");
+        const errorDetail = result.message || result.error || "Dry run failed";
+        throw new Error(errorDetail);
       }
 
       setDryRunResult(result);
     } catch (err) {
+      const isNetworkError = err instanceof TypeError && err.message === "Failed to fetch";
       toast({
-        title: "Dry run failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: isNetworkError ? "Erreur réseau" : "Dry run failed",
+        description: isNetworkError
+          ? "Impossible de joindre le serveur. Vérifiez votre connexion ou réessayez."
+          : err instanceof Error ? err.message : "Unknown error",
         variant: "destructive",
       });
     }
@@ -388,7 +396,8 @@ export default function Simulator() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Execution failed");
+        const errorDetail = result.message || result.error || "Execution failed";
+        throw new Error(errorDetail);
       }
 
       setExecuteResult(result);
@@ -399,7 +408,11 @@ export default function Simulator() {
         description: `${result.results.filter((r: StepResult) => r.status === "success").length}/${result.results.length} steps succeeded`,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Execution failed");
+      if (err instanceof TypeError && err.message === "Failed to fetch") {
+        setError("Impossible de joindre le serveur. Vérifiez votre connexion ou réessayez.");
+      } else {
+        setError(err instanceof Error ? err.message : "Execution failed");
+      }
       setPhase("preview");
     }
   };
@@ -753,7 +766,16 @@ export default function Simulator() {
                           {result.error && (
                             <Alert variant="destructive">
                               <XCircle className="h-4 w-4" />
-                              <AlertDescription>{result.error}</AlertDescription>
+                              <AlertTitle className="text-sm">{result.action_name} — Échec</AlertTitle>
+                              <AlertDescription className="space-y-1">
+                                <p>{result.error}</p>
+                                {result.permission_check?.denial_reason && (
+                                  <p className="text-xs opacity-80">Raison : {result.permission_check.denial_reason}</p>
+                                )}
+                                <p className="text-xs opacity-60 mt-1">
+                                  💡 Vérifiez que le connecteur API est configuré et actif, et que l'action est bien liée à un endpoint.
+                                </p>
+                              </AlertDescription>
                             </Alert>
                           )}
 
@@ -879,7 +901,16 @@ export default function Simulator() {
                           {result.error && (
                             <Alert variant="destructive">
                               <XCircle className="h-4 w-4" />
-                              <AlertDescription>{result.error}</AlertDescription>
+                              <AlertTitle className="text-sm">{result.action_name} — Échec</AlertTitle>
+                              <AlertDescription className="space-y-1">
+                                <p>{result.error}</p>
+                                {result.permission_check && !result.permission_check.allowed && result.permission_check.denial_reason && (
+                                  <p className="text-xs opacity-80">Raison : {result.permission_check.denial_reason}</p>
+                                )}
+                                <p className="text-xs opacity-60 mt-1">
+                                  💡 Vérifiez que le connecteur API est configuré et actif, et que l'action est bien liée à un endpoint.
+                                </p>
+                              </AlertDescription>
                             </Alert>
                           )}
                         </div>

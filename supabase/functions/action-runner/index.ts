@@ -468,14 +468,19 @@ serve(async (req) => {
     let connector = null;
 
     if (endpoint) {
-      const { data: connectorData } = await supabase
+      const { data: connectorData, error: connectorError } = await supabase
         .from("api_connectors")
         .select("*")
         .eq("api_source_id", endpoint.api_source_id)
         .eq("is_active", true)
         .single();
 
+      if (connectorError || !connectorData) {
+        console.warn(`No active connector found for api_source_id=${endpoint.api_source_id}, action=${action.name}`);
+      }
       connector = connectorData;
+    } else {
+      console.warn(`Action "${action.name}" has no linked endpoint — will run in simulated mode`);
     }
 
     // Create execution run record
@@ -731,17 +736,22 @@ serve(async (req) => {
     // Get CORS headers for error response
     const { headers: errorCorsHeaders } = getCorsHeaders(req);
 
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({
         success: false,
         execution_id: executionId,
         status: "failed",
-        error: "Internal server error",
+        error: errorMessage,
+        debug_info: {
+          stage: "action-runner-global-catch",
+          error_type: error instanceof Error ? error.constructor.name : typeof error,
+        },
         retries_used: 0,
         duration_ms: Date.now() - startTime,
         redacted_request: {},
         redacted_response: {},
-      } as ActionResult),
+      }),
       { status: 500, headers: { ...errorCorsHeaders, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Content-Type": "application/json" } }
     );
   }

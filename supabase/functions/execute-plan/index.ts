@@ -393,16 +393,17 @@ serve(async (req) => {
             });
           }
         } catch (execError) {
+          const errorMsg = execError instanceof Error ? execError.message : "Execution failed";
+          console.error(`Step ${step.step_number} (${step.action_name}) execution error:`, errorMsg);
           results.push({
             step_number: step.step_number,
             action_name: step.action_name,
             status: "failed",
-            error: execError instanceof Error ? execError.message : "Execution failed",
+            error: errorMsg,
             permission_check: {
               allowed: true,
               requires_confirmation: requiresConfirmation,
               requires_approval: requiresApproval,
-              
             },
           });
         }
@@ -444,10 +445,15 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("execute-plan error:", error);
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    console.error("execute-plan error:", errorMsg);
     const { headers: errorCorsHeaders } = getCorsHeaders(req);
     return new Response(
-      JSON.stringify({ error: "Internal server error" }),
+      JSON.stringify({ 
+        error: "Internal server error", 
+        message: errorMsg,
+        debug_info: { stage: "execute-plan-global-catch" },
+      }),
       { status: 500, headers: { ...errorCorsHeaders, "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Content-Type": "application/json" } }
     );
   }
