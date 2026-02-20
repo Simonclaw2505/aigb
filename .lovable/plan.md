@@ -1,75 +1,99 @@
 
 
-# Ajouter l'outil "Productive" a la bibliotheque
+# Corriger les agents (edition, suppression) et le dashboard dynamique
 
-## Donnees de la carte
+## Problemes identifies
 
-| Champ | Valeur |
-|---|---|
-| Nom | Productive |
-| Slug | productive |
-| Categorie | Productivite |
-| URL de base | `https://api.productive.io/api/v2` |
-| Type d'auth | custom (Header personnalise) |
-| Nom du header | X-Auth-Token |
-| Instructions d'auth | Generer un jeton API depuis Productive > Settings > API. Ajouter egalement l'ID de l'organisation dans le header X-Organization-Id. |
-| Headers supplementaires | `{"Content-Type": "application/vnd.api+json", "X-Organization-Id": "<org_id>"}` |
+1. **Suppression impossible** : le bouton "Supprimer" dans le menu contextuel de chaque agent n'a aucun `onClick` -- il ne fait rien.
+2. **Edition impossible** : il n'existe aucun moyen de modifier le nom ou la description d'un agent apres sa creation.
+3. **Dashboard statique** : les trois compteurs (Agents, Outils connectes, Appels API) sont codes en dur a "0". L'activite recente est egalement statique.
 
-## Endpoints (34 entrees)
+---
 
-Chaque ressource est declaree avec ses operations CRUD standard :
+## 1. Suppression d'agent avec confirmation
 
-- GET /activities -- Lister les activites
-- GET /approval_policies -- Lister les politiques de validation
-- GET /approval_policy_assignments -- Lister les affectations de validation
-- GET /approval_workflows -- Lister les workflows de validation
-- GET /attachments -- Lister les fichiers attaches
-- POST /attachments -- Creer un fichier attache
-- GET /automatic_invoicing_rules -- Lister les regles de facturation auto
-- GET /bank_accounts -- Lister les comptes bancaires
-- GET /bills -- Lister les factures fournisseurs
-- POST /bills -- Creer une facture fournisseur
-- GET /boards -- Lister les tableaux
-- GET /bookings -- Lister les reservations
-- POST /bookings -- Creer une reservation
-- GET /comments -- Lister les commentaires
-- POST /comments -- Creer un commentaire
-- GET /companies -- Lister les entreprises
-- POST /companies -- Creer une entreprise
-- GET /contact_entries -- Lister les contacts
-- POST /contact_entries -- Creer un contact
-- GET /contracts -- Lister les contrats
-- POST /contracts -- Creer un contrat
-- GET /deals -- Lister les budgets
-- POST /deals -- Creer un budget
-- GET /docs -- Lister les documents
-- POST /docs -- Creer un document
-- GET /invoices -- Lister les factures client
-- POST /invoices -- Creer une facture client
-- GET /people -- Lister les utilisateurs
-- GET /projects -- Lister les projets
-- POST /projects -- Creer un projet
-- GET /task_lists -- Lister les listes de taches
-- GET /tasks -- Lister les taches
-- POST /tasks -- Creer une tache
-- GET /time_entries -- Lister les saisies de temps
-- POST /time_entries -- Creer une saisie de temps
-- GET /workflows -- Lister les workflows
-- GET /work_types -- Lister les types de prestations
+**Fichier** : `src/pages/Projects.tsx`
 
-## Implementation technique
+- Ajouter un state `deleteAgent` pour stocker l'agent a supprimer
+- Ajouter un `AlertDialog` de confirmation ("Etes-vous sur de vouloir supprimer l'agent X ? Cette action est irreversible.")
+- Au clic sur "Supprimer" dans le `DropdownMenu`, stocker l'agent cible dans `deleteAgent` (au lieu de rien faire)
+- A la confirmation, executer `supabase.from("projects").delete().eq("id", agentId)` puis `refetch()`
+- La politique RLS `Admins can delete projects` autorise deja les owners/admins a supprimer
 
-**Fichier** : `src/pages/Tools.tsx` (ou via appel direct Supabase)
+## 2. Edition d'un agent existant
 
-Inserer une ligne dans la table `tool_library` via le client Supabase avec toutes les donnees ci-dessus. Cela peut se faire :
+**Fichier** : `src/pages/Projects.tsx`
 
-- **Option A** : Via une migration SQL avec un `INSERT INTO tool_library (...)` contenant toutes les valeurs
-- **Option B** : Via le code existant du `ToolLibraryForm` qui insere deja dans cette table
+- Ajouter un state `editAgent` avec l'agent en cours d'edition
+- Ajouter un `Dialog` d'edition avec les champs Nom et Description pre-remplis
+- Ajouter une entree "Modifier" dans le `DropdownMenu` de chaque agent (avec une icone Pencil)
+- A la sauvegarde, executer `supabase.from("projects").update({ name, description }).eq("id", agentId)` puis `refetch()`
+- La politique RLS `Admins can update projects` autorise deja les owners/admins/members a modifier
 
-L'option A (migration SQL) est la plus fiable car elle garantit que l'outil est present en base sans dependre d'une action utilisateur.
+## 3. Dashboard avec donnees reelles
 
-La migration SQL inserera un enregistrement avec :
-- Le champ `endpoints` en JSONB contenant les 37 entrees
-- Le champ `extra_headers` en JSONB avec Content-Type et X-Organization-Id
-- `is_published` a `true`
+**Fichier** : `src/pages/Dashboard.tsx`
+
+- Importer `useCurrentProject` pour acceder a `projects`, `organization`
+- Calculer les vraies statistiques :
+  - **Agents** : `projects.length`
+  - **Outils connectes** : requete `supabase.from("agent_tools").select("api_source_id")` puis compter les IDs uniques
+  - **Appels API aujourd'hui** : requete `supabase.from("execution_runs").select("id", { count: "exact" }).gte("created_at", debutDuJour)`
+- Pour l'activite recente, charger les 5 derniers `audit_logs` de l'organisation et les afficher avec l'action, la date et le type de ressource
+
+---
+
+## Details techniques
+
+### Suppression (Projects.tsx)
+
+```text
+Nouveaux states :
+  deleteAgent: { id, name } | null
+
+Nouveau composant dans le JSX :
+  <AlertDialog> avec titre, description, bouton Annuler et bouton Supprimer (variant destructive)
+
+Handler :
+  handleDelete(agentId) -> supabase delete + refetch + toast
+```
+
+### Edition (Projects.tsx)
+
+```text
+Nouveaux states :
+  editAgent: { id, name, description } | null
+  editName / editDesc (champs du formulaire)
+
+Nouveau composant dans le JSX :
+  <Dialog> avec Input (nom) + Textarea (description) + boutons Annuler/Enregistrer
+
+Handler :
+  handleEdit(agentId, name, desc) -> supabase update + refetch + toast
+```
+
+### Dashboard dynamique (Dashboard.tsx)
+
+```text
+Imports supplementaires :
+  useCurrentProject, supabase, useState, useEffect
+
+Logique :
+  1. Recuperer projects.length pour le compteur Agents
+  2. Requete agent_tools pour compter les outils uniques
+  3. Requete execution_runs avec filtre created_at >= debut du jour pour les appels API
+  4. Requete audit_logs (limit 5, order desc) pour l'activite recente
+
+Affichage activite recente :
+  Liste des 5 derniers logs avec icone, action, type de ressource et date relative
+```
+
+### Fichiers modifies
+
+```text
+src/pages/Projects.tsx    -- suppression + edition
+src/pages/Dashboard.tsx   -- stats dynamiques + activite recente
+```
+
+Aucune modification de schema ou migration necessaire -- les tables et politiques RLS existantes couvrent tous les cas.
 
