@@ -75,8 +75,8 @@ export default function Landing() {
           <Button
             variant="outline"
             size="sm"
-            className="border-white/10 bg-transparent text-white/30 cursor-not-allowed"
-            disabled
+            className="border-white/10 bg-transparent text-white/80 hover:text-white hover:bg-white/10"
+            onClick={() => navigate("/auth")}
           >
             Se connecter
           </Button>
