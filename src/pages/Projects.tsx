@@ -19,6 +19,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -34,7 +44,7 @@ import { useCurrentProject } from "@/hooks/useCurrentProject";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2, Wrench, KeyRound } from "lucide-react";
+import { Plus, Search, Bot, MoreHorizontal, Calendar, Loader2, Check, Play, Pause, Archive, Trash2, Wrench, KeyRound, Pencil } from "lucide-react";
 
 // Status badge variants
 const statusVariants: Record<string, "default" | "secondary" | "outline"> = {
@@ -57,6 +67,16 @@ export default function Projects() {
   const [agentToolsMap, setAgentToolsMap] = useState<Record<string, LinkedTool[]>>({});
   const [manageToolsAgent, setManageToolsAgent] = useState<{ id: string; name: string } | null>(null);
   const [manageOperatorsAgent, setManageOperatorsAgent] = useState<{ id: string; name: string } | null>(null);
+
+  // Delete agent state
+  const [deleteAgent, setDeleteAgent] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Edit agent state
+  const [editAgent, setEditAgent] = useState<{ id: string; name: string; description: string | null } | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const { user } = useAuth();
   const {
@@ -152,6 +172,50 @@ export default function Projects() {
       toast.error(error.message || "Erreur lors de la création");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // Delete handler
+  const handleDelete = async () => {
+    if (!deleteAgent) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .delete()
+        .eq("id", deleteAgent.id);
+
+      if (error) throw error;
+
+      toast.success(`Agent "${deleteAgent.name}" supprimé`);
+      setDeleteAgent(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la suppression");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Edit handler
+  const handleEdit = async () => {
+    if (!editAgent || !editName.trim()) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({ name: editName.trim(), description: editDesc.trim() || null })
+        .eq("id", editAgent.id);
+
+      if (error) throw error;
+
+      toast.success("Agent mis à jour");
+      setEditAgent(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la mise à jour");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -310,6 +374,17 @@ export default function Projects() {
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
+                            setEditAgent({ id: project.id, name: project.name, description: project.description });
+                            setEditName(project.name);
+                            setEditDesc(project.description || "");
+                          }}
+                        >
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setManageToolsAgent({ id: project.id, name: project.name });
                           }}
                         >
@@ -351,7 +426,13 @@ export default function Projects() {
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteAgent({ id: project.id, name: project.name });
+                          }}
+                        >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Supprimer
                         </DropdownMenuItem>
@@ -388,6 +469,83 @@ export default function Projects() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteAgent} onOpenChange={(open) => !open && setDeleteAgent(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer l'agent</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer l'agent <strong>{deleteAgent?.name}</strong> ? Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit agent dialog */}
+      <Dialog open={!!editAgent} onOpenChange={(open) => !open && setEditAgent(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier l'agent</DialogTitle>
+            <DialogDescription>
+              Modifiez le nom et la description de l'agent
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nom de l'agent</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                disabled={isSaving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-desc">Description</Label>
+              <Textarea
+                id="edit-desc"
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={3}
+                disabled={isSaving}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditAgent(null)} disabled={isSaving}>
+              Annuler
+            </Button>
+            <Button onClick={handleEdit} disabled={!editName.trim() || isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                "Enregistrer"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Manage tools dialog */}
       {manageToolsAgent && organization && (
