@@ -243,6 +243,7 @@ export default function Simulator() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
             project_id: selectedProjectId,
@@ -290,6 +291,7 @@ export default function Simulator() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
             session_id: planToRun.session_id,
@@ -380,6 +382,7 @@ export default function Simulator() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
             session_id: plan.session_id,
