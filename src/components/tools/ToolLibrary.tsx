@@ -22,6 +22,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { ToolSuggestions } from "./ToolSuggestions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,7 +131,8 @@ export function ToolLibrary() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Smart suggestions */}
+      <ToolSuggestions />
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
