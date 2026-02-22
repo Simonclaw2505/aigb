@@ -1,34 +1,38 @@
 
 
-# Corriger l'action create_send restante (9be381b7)
+# Fix: les placeholders du body_template ne sont pas resolus
 
 ## Probleme
 
-Le projet "envoie de mail" a **deux** actions `create_send`. On a corrige `de43e017` mais le simulateur utilise `9be381b7`, qui a toujours `endpoint_id = NULL` et tombe en mode simule.
+L'erreur SendGrid "The from email does not contain a valid address" vient du fait que les placeholders `{{from}}`, `{{to}}`, etc. ne sont **pas remplaces** dans le body_template. SendGrid recoit litteralement la chaine `"{{from}}"` au lieu de l'adresse email.
 
-| Action ID | endpoint_path | endpoint_id | Status |
-|-----------|--------------|-------------|--------|
-| de43e017 | /v3/mail/send | 9894fc5e (corrige) | OK |
-| 9be381b7 | /v3/marketing/singlesends/{id}/send | NULL | Mode simule |
+**Cause racine** : le simulateur envoie les inputs sous la forme `{body: {from: "...", to: "...", subject: "...", html: "..."}}` (objet imbrique), mais `applyBodyTemplate` cherche les cles `from`, `to`, `subject`, `html_content` **au premier niveau** de `modifiedInputs`. Comme elles sont imbriquees dans `body`, les placeholders restent non resolus.
 
 ## Solution
 
-Deux options :
+Modifier `action-runner/index.ts` (lignes 623-631) pour aplatir les inputs avant d'appliquer le body_template : si `modifiedInputs` contient une cle `body` qui est un objet, utiliser son contenu comme source des placeholders.
 
-**Option retenue** : Lier `9be381b7` au meme endpoint `/v3/mail/send` (`9894fc5e`) et lui ajouter le meme `body_template`. Cela garantit que quelle que soit l'action choisie par le simulateur, l'envoi fonctionne.
+### Changement technique
 
-### Donnee a modifier (pas de fichier code)
+Dans `supabase/functions/action-runner/index.ts`, avant l'appel a `applyBodyTemplate`, ajouter une logique de "flattening" :
 
-```sql
-UPDATE action_templates
-SET endpoint_id = '9894fc5e-456a-40ff-8db9-ee09d30c3523',
-    endpoint_path = '/v3/mail/send',
-    constraints = jsonb_set(
-      COALESCE(constraints, '{}'::jsonb),
-      '{body_template}',
-      '{"personalizations":[{"to":[{"email":"{{to}}"}],"subject":"{{subject}}"}],"from":{"email":"{{from}}"},"content":[{"type":"text/html","value":"{{html_content}}"}]}'::jsonb
-    )
-WHERE id = '9be381b7-5537-47cd-99d9-502fb55b10c3';
+```typescript
+// Flatten: if inputs have a nested "body" object, merge its keys to top level
+// so that body_template placeholders like {{from}} can be resolved
+let templateInputs = modifiedInputs;
+if (modifiedInputs.body && typeof modifiedInputs.body === "object" && !Array.isArray(modifiedInputs.body)) {
+  templateInputs = { ...modifiedInputs, ...(modifiedInputs.body as Record<string, unknown>) };
+}
+const transformedBody = applyBodyTemplate(bodyTemplate, templateInputs);
 ```
 
-Aucun fichier de code a modifier. La correction est purement dans les donnees.
+Egalement, ajouter un mapping `html` vers `html_content` car le simulateur envoie `html` mais le template attend `{{html_content}}` :
+
+```typescript
+if (templateInputs.html && !templateInputs.html_content) {
+  templateInputs.html_content = templateInputs.html;
+}
+```
+
+Un seul fichier a modifier : `supabase/functions/action-runner/index.ts`.
+
