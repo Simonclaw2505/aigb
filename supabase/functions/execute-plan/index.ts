@@ -346,11 +346,13 @@ serve(async (req) => {
         // Execute via action-runner edge function (real API calls)
         try {
           const actionRunnerUrl = `${supabaseUrl}/functions/v1/action-runner`;
+          const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || supabaseServiceKey;
           const response = await fetch(actionRunnerUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${authHeader}`,
+              "apikey": anonKey,
             },
             body: JSON.stringify({
               action_template_id: step.action_template_id,
