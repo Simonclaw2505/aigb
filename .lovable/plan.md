@@ -1,45 +1,34 @@
 
 
-# Corriger le mode simule des actions create_send du projet "envoie de mail"
+# Corriger l'action create_send restante (9be381b7)
 
 ## Probleme
 
-Les actions `create_send` du projet "envoie de mail" n'ont pas de `endpoint_id` renseigne. Sans cette liaison, l'action-runner ne trouve pas de connecteur API et tombe en **mode simule** au lieu de faire le vrai appel SendGrid.
+Le projet "envoie de mail" a **deux** actions `create_send`. On a corrige `de43e017` mais le simulateur utilise `9be381b7`, qui a toujours `endpoint_id = NULL` et tombe en mode simule.
 
-## Cause
-
-Il y a 4 actions `create_send` dans la base :
-
-```text
-Projet "Logistic Agent" :
-  - 271d13b1 -> endpoint /v3/marketing/singlesends/{id}/send (lie)
-  - ee3ce280 -> endpoint /v3/mail/send (lie, avec body_template)
-
-Projet "envoie de mail" :
-  - 9be381b7 -> endpoint_id = NULL (simule)
-  - de43e017 -> endpoint_id = NULL (simule)  <-- c'est celle qu'il faut corriger
-```
-
-L'endpoint `/v3/mail/send` (id `9894fc5e`) existe bien et est lie a l'api_source SendGrid qui a un connecteur actif. Il manque juste le lien.
+| Action ID | endpoint_path | endpoint_id | Status |
+|-----------|--------------|-------------|--------|
+| de43e017 | /v3/mail/send | 9894fc5e (corrige) | OK |
+| 9be381b7 | /v3/marketing/singlesends/{id}/send | NULL | Mode simule |
 
 ## Solution
 
-1. **Mettre a jour l'action `de43e017`** (create_send pour `/v3/mail/send` dans le projet "envoie de mail") pour ajouter le `endpoint_id` manquant vers `9894fc5e`.
+Deux options :
 
-2. **Ajouter le `body_template`** sur cette meme action pour transformer les inputs plats en structure SendGrid Mail Send API.
+**Option retenue** : Lier `9be381b7` au meme endpoint `/v3/mail/send` (`9894fc5e`) et lui ajouter le meme `body_template`. Cela garantit que quelle que soit l'action choisie par le simulateur, l'envoi fonctionne.
 
-### Migration SQL
+### Donnee a modifier (pas de fichier code)
 
 ```sql
 UPDATE action_templates
 SET endpoint_id = '9894fc5e-456a-40ff-8db9-ee09d30c3523',
+    endpoint_path = '/v3/mail/send',
     constraints = jsonb_set(
       COALESCE(constraints, '{}'::jsonb),
       '{body_template}',
       '{"personalizations":[{"to":[{"email":"{{to}}"}],"subject":"{{subject}}"}],"from":{"email":"{{from}}"},"content":[{"type":"text/html","value":"{{html_content}}"}]}'::jsonb
     )
-WHERE id = 'de43e017-e953-408e-b0cb-28d7421002cf';
+WHERE id = '9be381b7-5537-47cd-99d9-502fb55b10c3';
 ```
 
 Aucun fichier de code a modifier. La correction est purement dans les donnees.
-
