@@ -1,99 +1,32 @@
 
 
-# Corriger les agents (edition, suppression) et le dashboard dynamique
+# Mettre a jour la cle API SendGrid pour que le simulateur fonctionne
 
-## Problemes identifies
+## Probleme
 
-1. **Suppression impossible** : le bouton "Supprimer" dans le menu contextuel de chaque agent n'a aucun `onClick` -- il ne fait rien.
-2. **Edition impossible** : il n'existe aucun moyen de modifier le nom ou la description d'un agent apres sa creation.
-3. **Dashboard statique** : les trois compteurs (Agents, Outils connectes, Appels API) sont codes en dur a "0". L'activite recente est egalement statique.
+L'action `create_send` est liee a l'ancien connecteur SendGrid dont la cle API est expiree (quota epuise). La nouvelle cle que tu as fournie n'a pas ete enregistree dans le bon secret.
 
----
+## Solution
 
-## 1. Suppression d'agent avec confirmation
+Il y a deux options. Je recommande l'option 1 (la plus simple) :
 
-**Fichier** : `src/pages/Projects.tsx`
+### Option 1 : Mettre a jour le secret existant (recommandee)
 
-- Ajouter un state `deleteAgent` pour stocker l'agent a supprimer
-- Ajouter un `AlertDialog` de confirmation ("Etes-vous sur de vouloir supprimer l'agent X ? Cette action est irreversible.")
-- Au clic sur "Supprimer" dans le `DropdownMenu`, stocker l'agent cible dans `deleteAgent` (au lieu de rien faire)
-- A la confirmation, executer `supabase.from("projects").delete().eq("id", agentId)` puis `refetch()`
-- La politique RLS `Admins can delete projects` autorise deja les owners/admins a supprimer
+Mettre a jour directement la valeur du secret `SendGrid_credential` (id: `ee602115-5cbf-4c56-bc21-c8e6213af1dd`) avec la nouvelle cle API. Cela ne necessite aucune modification de code -- l'action `create_send` continuera d'utiliser le meme connecteur, mais avec la nouvelle cle.
 
-## 2. Edition d'un agent existant
+**Etape technique** : Appel SQL pour mettre a jour la colonne `encrypted_value` du secret `SendGrid_credential` avec la nouvelle cle `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`.
 
-**Fichier** : `src/pages/Projects.tsx`
+### Option 2 : Repointer l'action vers le connecteur "SendGrid v2"
 
-- Ajouter un state `editAgent` avec l'agent en cours d'edition
-- Ajouter un `Dialog` d'edition avec les champs Nom et Description pre-remplis
-- Ajouter une entree "Modifier" dans le `DropdownMenu` de chaque agent (avec une icone Pencil)
-- A la sauvegarde, executer `supabase.from("projects").update({ name, description }).eq("id", agentId)` puis `refetch()`
-- La politique RLS `Admins can update projects` autorise deja les owners/admins/members a modifier
-
-## 3. Dashboard avec donnees reelles
-
-**Fichier** : `src/pages/Dashboard.tsx`
-
-- Importer `useCurrentProject` pour acceder a `projects`, `organization`
-- Calculer les vraies statistiques :
-  - **Agents** : `projects.length`
-  - **Outils connectes** : requete `supabase.from("agent_tools").select("api_source_id")` puis compter les IDs uniques
-  - **Appels API aujourd'hui** : requete `supabase.from("execution_runs").select("id", { count: "exact" }).gte("created_at", debutDuJour)`
-- Pour l'activite recente, charger les 5 derniers `audit_logs` de l'organisation et les afficher avec l'action, la date et le type de ressource
+Modifier le connecteur lie a l'api_source `d67b9ae3` pour utiliser le secret `SendGrid v2_credential` a la place. Plus complexe et risque de casser d'autres actions liees.
 
 ---
 
-## Details techniques
+## Fichiers modifies
 
-### Suppression (Projects.tsx)
+Aucun fichier de code a modifier. Seule une migration SQL est necessaire pour mettre a jour la valeur du secret dans la table `secrets`.
 
-```text
-Nouveaux states :
-  deleteAgent: { id, name } | null
+## Remarque importante
 
-Nouveau composant dans le JSX :
-  <AlertDialog> avec titre, description, bouton Annuler et bouton Supprimer (variant destructive)
-
-Handler :
-  handleDelete(agentId) -> supabase delete + refetch + toast
-```
-
-### Edition (Projects.tsx)
-
-```text
-Nouveaux states :
-  editAgent: { id, name, description } | null
-  editName / editDesc (champs du formulaire)
-
-Nouveau composant dans le JSX :
-  <Dialog> avec Input (nom) + Textarea (description) + boutons Annuler/Enregistrer
-
-Handler :
-  handleEdit(agentId, name, desc) -> supabase update + refetch + toast
-```
-
-### Dashboard dynamique (Dashboard.tsx)
-
-```text
-Imports supplementaires :
-  useCurrentProject, supabase, useState, useEffect
-
-Logique :
-  1. Recuperer projects.length pour le compteur Agents
-  2. Requete agent_tools pour compter les outils uniques
-  3. Requete execution_runs avec filtre created_at >= debut du jour pour les appels API
-  4. Requete audit_logs (limit 5, order desc) pour l'activite recente
-
-Affichage activite recente :
-  Liste des 5 derniers logs avec icone, action, type de ressource et date relative
-```
-
-### Fichiers modifies
-
-```text
-src/pages/Projects.tsx    -- suppression + edition
-src/pages/Dashboard.tsx   -- stats dynamiques + activite recente
-```
-
-Aucune modification de schema ou migration necessaire -- les tables et politiques RLS existantes couvrent tous les cas.
+La nouvelle cle est liee au compte `ahlybebo007@gmail.com`. Assure-toi que cette adresse est bien configuree comme **Verified Sender** dans le dashboard SendGrid de ce nouveau compte.
 
