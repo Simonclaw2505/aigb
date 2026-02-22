@@ -626,9 +626,35 @@ serve(async (req) => {
         if (bodyTemplate && typeof bodyTemplate === "object") {
           // Flatten: if inputs have a nested "body" object, merge its keys to top level
           // so that body_template placeholders like {{from}} can be resolved
-          let templateInputs = modifiedInputs;
+          let templateInputs: Record<string, unknown> = { ...modifiedInputs };
           if (modifiedInputs.body && typeof modifiedInputs.body === "object" && !Array.isArray(modifiedInputs.body)) {
-            templateInputs = { ...modifiedInputs, ...(modifiedInputs.body as Record<string, unknown>) };
+            templateInputs = { ...templateInputs, ...(modifiedInputs.body as Record<string, unknown>) };
+          }
+          // Unwrap simple wrapper objects: e.g. {email: "x"} → "x", so {{from}} resolves to a string
+          for (const [k, v] of Object.entries(templateInputs)) {
+            if (v && typeof v === "object" && !Array.isArray(v)) {
+              const entries = Object.entries(v as Record<string, unknown>);
+              if (entries.length === 1 && typeof entries[0][1] === "string") {
+                templateInputs[k] = entries[0][1];
+              }
+            }
+          }
+          // Extract "to" email from personalizations array if present
+          if (Array.isArray(templateInputs.personalizations)) {
+            const firstP = (templateInputs.personalizations as Record<string, unknown>[])[0];
+            if (firstP?.to && Array.isArray(firstP.to) && (firstP.to as Record<string, unknown>[]).length > 0) {
+              templateInputs.to = ((firstP.to as Record<string, unknown>[])[0] as Record<string, unknown>).email || templateInputs.to;
+            }
+            if (firstP?.subject) {
+              templateInputs.subject = templateInputs.subject || firstP.subject;
+            }
+          }
+          // Extract content value
+          if (Array.isArray(templateInputs.content)) {
+            const firstC = (templateInputs.content as Record<string, unknown>[])[0];
+            if (firstC?.value) {
+              templateInputs.html_content = templateInputs.html_content || firstC.value;
+            }
           }
           // Map 'html' to 'html_content' if needed
           if (templateInputs.html && !templateInputs.html_content) {
