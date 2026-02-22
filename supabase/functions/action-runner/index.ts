@@ -624,7 +624,17 @@ serve(async (req) => {
         // Apply body_template transformation if defined in constraints
         const bodyTemplate = (constraints as Record<string, unknown>).body_template;
         if (bodyTemplate && typeof bodyTemplate === "object") {
-          const transformedBody = applyBodyTemplate(bodyTemplate, modifiedInputs);
+          // Flatten: if inputs have a nested "body" object, merge its keys to top level
+          // so that body_template placeholders like {{from}} can be resolved
+          let templateInputs = modifiedInputs;
+          if (modifiedInputs.body && typeof modifiedInputs.body === "object" && !Array.isArray(modifiedInputs.body)) {
+            templateInputs = { ...modifiedInputs, ...(modifiedInputs.body as Record<string, unknown>) };
+          }
+          // Map 'html' to 'html_content' if needed
+          if (templateInputs.html && !templateInputs.html_content) {
+            templateInputs.html_content = templateInputs.html;
+          }
+          const transformedBody = applyBodyTemplate(bodyTemplate, templateInputs);
           requestOptions.body = JSON.stringify(transformedBody);
         } else {
           requestOptions.body = JSON.stringify(modifiedInputs);
