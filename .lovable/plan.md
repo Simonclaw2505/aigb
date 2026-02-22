@@ -1,47 +1,45 @@
 
 
-# Corriger l'erreur 404 lors de l'appel action-runner depuis execute-plan
+# Corriger le mode simule des actions create_send du projet "envoie de mail"
 
 ## Probleme
 
-La fonction `execute-plan` appelle `action-runner` via HTTP interne, mais il manque le header `apikey` obligatoire pour que la passerelle Supabase puisse router la requete vers la bonne fonction. Sans ce header, la passerelle repond "404 page not found" au lieu de transmettre la requete.
+Les actions `create_send` du projet "envoie de mail" n'ont pas de `endpoint_id` renseigne. Sans cette liaison, l'action-runner ne trouve pas de connecteur API et tombe en **mode simule** au lieu de faire le vrai appel SendGrid.
 
-## Cause technique
+## Cause
 
-Dans `supabase/functions/execute-plan/index.ts` (lignes 348-354), l'appel a `action-runner` n'inclut que `Authorization` et `Content-Type`, mais pas `apikey` :
+Il y a 4 actions `create_send` dans la base :
 
 ```text
-const response = await fetch(actionRunnerUrl, {
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${authHeader}`,
-    // <-- il manque apikey !
-  },
+Projet "Logistic Agent" :
+  - 271d13b1 -> endpoint /v3/marketing/singlesends/{id}/send (lie)
+  - ee3ce280 -> endpoint /v3/mail/send (lie, avec body_template)
+
+Projet "envoie de mail" :
+  - 9be381b7 -> endpoint_id = NULL (simule)
+  - de43e017 -> endpoint_id = NULL (simule)  <-- c'est celle qu'il faut corriger
 ```
+
+L'endpoint `/v3/mail/send` (id `9894fc5e`) existe bien et est lie a l'api_source SendGrid qui a un connecteur actif. Il manque juste le lien.
 
 ## Solution
 
-Ajouter le header `apikey` dans l'appel interne. On utilisera `SUPABASE_SERVICE_ROLE_KEY` (deja disponible dans la fonction) ou `SUPABASE_ANON_KEY`.
+1. **Mettre a jour l'action `de43e017`** (create_send pour `/v3/mail/send` dans le projet "envoie de mail") pour ajouter le `endpoint_id` manquant vers `9894fc5e`.
 
-## Fichier modifie
+2. **Ajouter le `body_template`** sur cette meme action pour transformer les inputs plats en structure SendGrid Mail Send API.
 
-**`supabase/functions/execute-plan/index.ts`** (lignes 348-354)
+### Migration SQL
 
-Ajouter le header `apikey` avec la valeur de la variable d'environnement `SUPABASE_ANON_KEY` (ou a defaut, la service role key) dans les headers du `fetch` vers `action-runner` :
-
-```text
-const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || supabaseServiceKey;
-
-const response = await fetch(actionRunnerUrl, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${authHeader}`,
-    "apikey": anonKey,
-  },
-  body: JSON.stringify({ ... }),
-});
+```sql
+UPDATE action_templates
+SET endpoint_id = '9894fc5e-456a-40ff-8db9-ee09d30c3523',
+    constraints = jsonb_set(
+      COALESCE(constraints, '{}'::jsonb),
+      '{body_template}',
+      '{"personalizations":[{"to":[{"email":"{{to}}"}],"subject":"{{subject}}"}],"from":{"email":"{{from}}"},"content":[{"type":"text/html","value":"{{html_content}}"}]}'::jsonb
+    )
+WHERE id = 'de43e017-e953-408e-b0cb-28d7421002cf';
 ```
 
-Aucune autre modification n'est necessaire. Le redeploiement automatique de la fonction corrigera l'erreur 404.
+Aucun fichier de code a modifier. La correction est purement dans les donnees.
 
