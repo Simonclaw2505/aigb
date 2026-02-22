@@ -217,6 +217,35 @@ async function fetchWithRetry(
   throw lastError || new Error("Request failed after retries");
 }
 
+/**
+ * Apply a body_template to transform flat inputs into a nested API payload.
+ * Replaces {{field}} placeholders with actual input values.
+ */
+function applyBodyTemplate(template: unknown, inputs: Record<string, unknown>): unknown {
+  if (typeof template === "string") {
+    // Check if the entire string is a single placeholder like "{{field}}"
+    const match = template.match(/^\{\{(\w+)\}\}$/);
+    if (match) {
+      return inputs[match[1]] !== undefined ? inputs[match[1]] : template;
+    }
+    // Replace inline placeholders
+    return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+      return inputs[key] !== undefined ? String(inputs[key]) : `{{${key}}}`;
+    });
+  }
+  if (Array.isArray(template)) {
+    return template.map(item => applyBodyTemplate(item, inputs));
+  }
+  if (template !== null && typeof template === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(template as Record<string, unknown>)) {
+      result[key] = applyBodyTemplate(value, inputs);
+    }
+    return result;
+  }
+  return template;
+}
+
 serve(async (req) => {
   // SECURITY: Validate CORS - reject requests from non-allowed origins
   const cors = validateCors(req);
@@ -592,7 +621,14 @@ serve(async (req) => {
       };
 
       if (!isReadOnly && Object.keys(modifiedInputs).length > 0) {
-        requestOptions.body = JSON.stringify(modifiedInputs);
+        // Apply body_template transformation if defined in constraints
+        const bodyTemplate = (constraints as Record<string, unknown>).body_template;
+        if (bodyTemplate && typeof bodyTemplate === "object") {
+          const transformedBody = applyBodyTemplate(bodyTemplate, modifiedInputs);
+          requestOptions.body = JSON.stringify(transformedBody);
+        } else {
+          requestOptions.body = JSON.stringify(modifiedInputs);
+        }
       }
 
       // Execute with retry
