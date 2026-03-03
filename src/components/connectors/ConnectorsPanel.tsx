@@ -114,32 +114,29 @@ export function ConnectorsPanel({ projectId, organizationId }: ConnectorsPanelPr
       setSaving(true);
       let credentialSecretId: string | null = editingConnector?.credential_secret_id || null;
 
-      // Create or update secret if credential provided
+      // Create or update secret via encryption service
       if (formData.auth_credential && formData.auth_type !== "none") {
-        if (credentialSecretId) {
-          // Update existing secret
-          await supabase
-            .from("secrets")
-            .update({ encrypted_value: formData.auth_credential })
-            .eq("id", credentialSecretId);
-        } else {
-          // Create new secret
-          const { data: newSecret, error: secretError } = await supabase
-            .from("secrets")
-            .insert({
+        const secretName = `connector_${projectId}_${formData.name.toLowerCase().replace(/\s+/g, "_")}_credential`;
+        const { data: secretResult, error: secretError } = await supabase.functions.invoke(
+          "secrets-manager",
+          {
+            body: {
+              action: "store",
               organization_id: organizationId,
               project_id: projectId,
-              name: `${formData.name}_credential`,
-              description: `API credential for ${formData.name} connector`,
-              encrypted_value: formData.auth_credential,
-              is_active: true,
-            })
-            .select("id")
-            .single();
-
-          if (secretError) throw secretError;
-          credentialSecretId = newSecret.id;
+              secret_name: secretName,
+              secret_value: formData.auth_credential,
+              description: `API credential for connector "${formData.name}"`,
+            },
+          },
+        );
+        if (secretError || !secretResult?.success) {
+          throw new Error(
+            secretResult?.error ||
+            "Encryption service unavailable. Please set SECRETS_ENCRYPTION_KEY in Supabase Edge Function secrets."
+          );
         }
+        credentialSecretId = secretResult.secret_id as string;
       }
 
       const connectorData = {
