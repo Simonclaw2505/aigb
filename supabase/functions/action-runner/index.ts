@@ -76,6 +76,25 @@ function redactSensitiveData(obj: unknown, depth = 0): unknown {
   return obj;
 }
 
+async function decryptIfNeeded(storedValue: string): Promise<string> {
+  const encryptionKey = Deno.env.get("SECRETS_ENCRYPTION_KEY");
+  if (!encryptionKey) return storedValue;
+  try {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const combined = Uint8Array.from(atob(storedValue), (c) => c.charCodeAt(0));
+    if (combined.length < 13) throw new Error("too short");
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const keyData = encoder.encode(encryptionKey.slice(0, 32).padEnd(32, "0"));
+    const cryptoKey = await crypto.subtle.importKey("raw", keyData, { name: "AES-GCM" }, false, ["decrypt"]);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, encrypted);
+    return decoder.decode(decrypted);
+  } catch {
+    return storedValue;
+  }
+}
+
 function validateInputSchema(inputs: Record<string, unknown>, schema: Record<string, unknown>): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   const schemaProps = (schema.properties || {}) as Record<string, { type?: string; required?: boolean; maxLength?: number; minimum?: number; maximum?: number }>;
@@ -594,7 +613,7 @@ serve(async (req) => {
           .single();
 
         if (secret) {
-          const credentialValue = secret.encrypted_value;
+          const credentialValue = await decryptIfNeeded(secret.encrypted_value);
           const authConfig = connector.auth_config as { header_name?: string; prefix?: string };
           const headerName = authConfig.header_name || "Authorization";
           const prefix = authConfig.prefix || "";
