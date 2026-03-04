@@ -1,5 +1,5 @@
 /**
- * AIGB Landing Page
+ * AI Guard Landing Page
  * "Make the future safe" — AI Governance for enterprises and individuals
  */
 
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import aigbLogo from "@/assets/aigb-logo.png";
+import aigLogo from "@/assets/aig-logo.svg";
 
 type ProspectType = "enterprise" | "individual" | null;
 
