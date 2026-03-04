@@ -123,6 +123,17 @@ export default function Dashboard() {
   return (
     <DashboardLayout title="Dashboard" description="Vue d'ensemble de vos agents">
       <div className="space-y-8">
+        {/* Status Banner */}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+          </span>
+          <span className="text-emerald-400 font-medium">Système opérationnel</span>
+          <span className="text-muted-foreground ml-auto text-xs">
+            Endpoint MCP actif · Agents en écoute
+          </span>
+        </div>
         {/* Welcome */}
         <div className="flex items-center justify-between">
           <div>
