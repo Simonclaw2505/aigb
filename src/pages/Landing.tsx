@@ -259,7 +259,7 @@ export default function Landing() {
                   </div>
                   <h3 className="text-lg font-semibold mb-3 tracking-tight">Des garde-fous à chaque niveau</h3>
                   <p className="text-sm text-white/40 leading-relaxed mb-4">
-                    AIGB intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet.
+                    AI Guard intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet.
                   </p>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {[
