@@ -1,33 +1,21 @@
 /**
  * Panel for managing agent API keys in Settings
  */
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Key, Plus, Loader2, Ban, Trash2 } from "lucide-react";
+import { Key, Plus, Loader2, Ban, Trash2, Copy, Check, Clock } from "lucide-react";
 import { useAgentApiKeys } from "@/hooks/useAgentApiKeys";
 import { CreateApiKeyDialog } from "./CreateApiKeyDialog";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format, isPast } from "date-fns";
 
 interface Project {
   id: string;
@@ -41,16 +29,29 @@ interface AgentApiKeysPanelProps {
 }
 
 export function AgentApiKeysPanel({ organizationId, projects }: AgentApiKeysPanelProps) {
-  const { keys, loading, fetchKeys, createKey, revokeKey, deleteKey } =
-    useAgentApiKeys({ organizationId });
+  const { keys, loading, fetchKeys, createKey, revokeKey, deleteKey } = useAgentApiKeys({ organizationId });
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeId, setRevokeId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (organizationId) fetchKeys();
   }, [organizationId, fetchKeys]);
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+
+  const handleCopyPrefix = (keyId: string, prefix: string) => {
+    navigator.clipboard.writeText(prefix + "...").then(() => {
+      setCopiedId(keyId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const getKeyStatus = (k: { isActive: boolean; expiresAt?: string | null }) => {
+    if (!k.isActive) return "revoked";
+    if (k.expiresAt && isPast(new Date(k.expiresAt))) return "expired";
+    return "active";
+  };
 
   if (!organizationId) {
     return (
@@ -107,54 +108,89 @@ export function AgentApiKeysPanel({ organizationId, projects }: AgentApiKeysPane
                   <TableHead>Project</TableHead>
                   <TableHead>Usage</TableHead>
                   <TableHead>Last Used</TableHead>
+                  <TableHead>Expires</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {keys.map((k) => (
-                  <TableRow key={k.id}>
-                    <TableCell className="font-medium">{k.name}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {k.keyPrefix}...
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {projectMap[k.projectId] || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm">{k.usageCount}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {k.lastUsedAt
-                        ? formatDistanceToNow(new Date(k.lastUsedAt), { addSuffix: true })
-                        : "Never"}
-                    </TableCell>
-                    <TableCell>
-                      {k.isActive ? (
-                        <Badge variant="default">Active</Badge>
-                      ) : (
-                        <Badge variant="secondary">Revoked</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {k.isActive ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setRevokeId(k.id)}
-                        >
-                          <Ban className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteKey(k.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {keys.map((k) => {
+                  const status = getKeyStatus(k);
+                  return (
+                    <TableRow key={k.id} className={status !== "active" ? "opacity-60" : ""}>
+                      <TableCell className="font-medium">{k.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {k.keyPrefix}...
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleCopyPrefix(k.id, k.keyPrefix)}
+                            title="Copy key prefix"
+                          >
+                            {copiedId === k.id ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {projectMap[k.projectId] || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">{k.usageCount}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {k.lastUsedAt
+                          ? formatDistanceToNow(new Date(k.lastUsedAt), { addSuffix: true })
+                          : "Never"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {k.expiresAt ? (
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span title={format(new Date(k.expiresAt), "PPP p")}>
+                              {isPast(new Date(k.expiresAt))
+                                ? "Expired"
+                                : formatDistanceToNow(new Date(k.expiresAt), { addSuffix: true })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground/60">Never</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {status === "active" && <Badge variant="default">Active</Badge>}
+                        {status === "revoked" && <Badge variant="secondary">Revoked</Badge>}
+                        {status === "expired" && <Badge variant="destructive">Expired</Badge>}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {status === "active" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRevokeId(k.id)}
+                            title="Revoke key"
+                          >
+                            <Ban className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteKey(k.id)}
+                            title="Delete key"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -180,10 +216,7 @@ export function AgentApiKeysPanel({ organizationId, projects }: AgentApiKeysPane
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (revokeId) revokeKey(revokeId);
-                setRevokeId(null);
-              }}
+              onClick={() => { if (revokeId) revokeKey(revokeId); setRevokeId(null); }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Revoke
