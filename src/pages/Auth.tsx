@@ -133,26 +133,26 @@ export default function Auth() {
 
         <Card className="border-border/50 shadow-lg">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl">Welcome</CardTitle>
+            <CardTitle className="text-xl">Bienvenue</CardTitle>
             <CardDescription>
-              Convert your APIs into governed, agent-friendly toolsets
+              Pilotez vos agents IA en toute confiance
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full" onValueChange={() => setFieldErrors({})}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="signin">Se connecter</TabsTrigger>
+                <TabsTrigger value="signup">Créer un compte</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
+                    <Label htmlFor="signin-email">Adresse e-mail</Label>
                     <Input
                       id="signin-email"
                       type="email"
-                      placeholder="you@company.com"
+                      placeholder="vous@entreprise.fr"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -164,7 +164,7 @@ export default function Auth() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
+                    <Label htmlFor="signin-password">Mot de passe</Label>
                     <Input
                       id="signin-password"
                       type="password"
@@ -189,7 +189,7 @@ export default function Auth() {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
+                    <Label htmlFor="signup-name">Nom complet</Label>
                     <Input
                       id="signup-name"
                       type="text"
@@ -205,11 +205,11 @@ export default function Auth() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label htmlFor="signup-email">Adresse e-mail</Label>
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="you@company.com"
+                      placeholder="vous@entreprise.fr"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -221,7 +221,7 @@ export default function Auth() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
+                    <Label htmlFor="signup-password">Mot de passe</Label>
                     <Input
                       id="signup-password"
                       type="password"
@@ -265,9 +265,24 @@ export default function Auth() {
             </Tabs>
           </CardContent>
         </Card>
+        {/* Trust signals */}
+        <div className="mt-6 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <span className="text-green-500">🔒</span>
+            <span>Données chiffrées AES-256</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-blue-500">👁️</span>
+            <span>Contrôle total</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-emerald-500">✅</span>
+            <span>Accès sécurisé</span>
+          </div>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          By continuing, you agree to our Terms of Service
+          En continuant, vous acceptez nos Conditions d'utilisation
         </p>
       </div>
     </div>
