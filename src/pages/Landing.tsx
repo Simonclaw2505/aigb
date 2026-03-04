@@ -337,7 +337,7 @@ export default function Landing() {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Merci pour votre inscription !</h3>
                 <p className="text-white/40">
-                  Notre équipe vous contactera très prochainement pour vous présenter AIGB
+                  Notre équipe vous contactera très prochainement pour vous présenter AI Guard
                   et répondre à toutes vos questions.
                 </p>
               </CardContent>
