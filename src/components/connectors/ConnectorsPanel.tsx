@@ -117,28 +117,39 @@ export function ConnectorsPanel({ projectId, organizationId }: ConnectorsPanelPr
       // Create or update secret if credential provided
       if (formData.auth_credential && formData.auth_type !== "none") {
         if (credentialSecretId) {
-          // Update existing secret
-          await supabase
-            .from("secrets")
-            .update({ encrypted_value: formData.auth_credential })
-            .eq("id", credentialSecretId);
+          // Rotate existing secret via secrets-manager (handles AES-GCM encryption)
+          const { data: rotatedSecret, error: rotateError } = await supabase.functions.invoke(
+            "secrets-manager",
+            {
+              body: {
+                action: "store",
+                secret_name: `connector_cred_${credentialSecretId}`,
+                secret_value: formData.auth_credential,
+                organization_id: organizationId,
+                project_id: projectId,
+              }
+            }
+          );
+          if (rotateError) throw new Error(rotateError.message || "Failed to update credential");
+          if (rotatedSecret?.secret_id) credentialSecretId = rotatedSecret.secret_id;
         } else {
-          // Create new secret
-          const { data: newSecret, error: secretError } = await supabase
-            .from("secrets")
-            .insert({
-              organization_id: organizationId,
-              project_id: projectId,
-              name: `${formData.name}_credential`,
-              description: `API credential for ${formData.name} connector`,
-              encrypted_value: formData.auth_credential,
-              is_active: true,
-            })
-            .select("id")
-            .single();
-
-          if (secretError) throw secretError;
-          credentialSecretId = newSecret.id;
+          // Create new secret via secrets-manager (handles AES-GCM encryption)
+          const secretName = `connector_cred_${projectId}_${Date.now()}`;
+          const { data: newSecret, error: secretError } = await supabase.functions.invoke(
+            "secrets-manager",
+            {
+              body: {
+                action: "store",
+                secret_name: secretName,
+                secret_value: formData.auth_credential,
+                organization_id: organizationId,
+                project_id: projectId,
+                description: `API credential for ${formData.name} connector`,
+              }
+            }
+          );
+          if (secretError) throw new Error(secretError.message || "Failed to store credential");
+          credentialSecretId = newSecret?.secret_id ?? null;
         }
       }
 
