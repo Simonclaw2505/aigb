@@ -173,7 +173,7 @@ export default function Landing() {
                   </div>
                   <h3 className="text-lg font-semibold mb-3 tracking-tight">Connectez vos outils</h3>
                   <p className="text-sm text-white/40 leading-relaxed mb-4">
-                    Importez vos APIs métier en quelques clics. Chaque outil connecté devient disponible dans AIGB, prêt à être utilisé par vos agents de manière encadrée.
+                    Importez vos APIs métier en quelques clics. Chaque outil connecté devient disponible dans AI Guard, prêt à être utilisé par vos agents de manière encadrée.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {["CRM", "Paiement", "Stock", "Facturation", "Logistique", "Email"].map((tool) => (
