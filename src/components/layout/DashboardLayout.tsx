@@ -1,5 +1,5 @@
 /**
- * Dashboard layout wrapper for MCP Foundry
+ * Dashboard layout wrapper for AIGB
  * Provides sidebar navigation and main content area
  */
 
@@ -21,14 +21,14 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
         <AppSidebar />
         <SidebarInset className="flex-1">
           {/* Top header bar */}
-          <header className="flex h-14 items-center gap-4 border-b border-border bg-background px-6">
+          <header className="flex h-14 items-center gap-4 border-b border-border/60 bg-background/80 backdrop-blur-sm px-6 sticky top-0 z-20">
             <SidebarTrigger className="-ml-2" />
-            <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-5" />
             {title && (
               <div className="flex flex-col">
-                <h1 className="text-sm font-medium text-foreground">{title}</h1>
+                <h1 className="text-sm font-semibold text-foreground tracking-tight">{title}</h1>
                 {description && (
-                  <p className="text-xs text-muted-foreground">{description}</p>
+                  <p className="text-[11px] text-muted-foreground">{description}</p>
                 )}
               </div>
             )}
