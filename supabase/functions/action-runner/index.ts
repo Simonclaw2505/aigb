@@ -246,6 +246,20 @@ function applyBodyTemplate(template: unknown, inputs: Record<string, unknown>): 
   return template;
 }
 
+// AES-GCM decryption helper for stored credentials
+async function decryptValue(encryptedB64: string): Promise<string> {
+  const encKeyStr = Deno.env.get("SECRETS_ENCRYPTION_KEY");
+  if (!encKeyStr) throw new Error("Missing SECRETS_ENCRYPTION_KEY env var");
+  const keyBytes = new TextEncoder().encode(encKeyStr.slice(0, 32));
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]
+  );
+  const combined = Uint8Array.from(atob(encryptedB64), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, ciphertext);
+  return new TextDecoder().decode(decrypted);
+}
 serve(async (req) => {
   // SECURITY: Validate CORS - reject requests from non-allowed origins
   const cors = validateCors(req);
@@ -594,7 +608,7 @@ serve(async (req) => {
           .single();
 
         if (secret) {
-          const credentialValue = secret.encrypted_value;
+          const credentialValue = await decryptValue(secret.encrypted_value);
           const authConfig = connector.auth_config as { header_name?: string; prefix?: string };
           const headerName = authConfig.header_name || "Authorization";
           const prefix = authConfig.prefix || "";
