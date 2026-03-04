@@ -497,8 +497,8 @@ export default function Landing() {
       <footer className="border-t border-white/[0.04] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/25">
           <div className="flex items-center gap-2">
-            <img src={aigbLogo} alt="AIGB" className="h-5 opacity-40" />
-            <span>© {new Date().getFullYear()} AIGB. Tous droits réservés.</span>
+            <img src={aigLogo} alt="AI Guard" className="h-5 opacity-40" />
+            <span>© {new Date().getFullYear()} AI Guard. Tous droits réservés.</span>
           </div>
           <span className="font-medium tracking-wide">Make the future safe.</span>
         </div>

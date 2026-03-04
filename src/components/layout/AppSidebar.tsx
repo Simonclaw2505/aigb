@@ -1,5 +1,5 @@
 /**
- * AppSidebar — Navigation principale AIGB
+ * AppSidebar — Navigation principale AI Guard
  * Vocabulaire orienté patron PME, groupé en 3 zones logiques
  */
 import { useLocation } from "react-router-dom";
@@ -20,7 +20,7 @@ import {
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
-import aigbLogo from "@/assets/aigb-logo.png";
+import aigLogo from "@/assets/aig-logo.svg";
 
 // ── Zones de navigation ──────────────────────────────────────────────────────
 
@@ -155,15 +155,15 @@ export function AppSidebar() {
       <SidebarHeader className="border-b border-sidebar-border px-4 py-5">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-            <img src={aigbLogo} alt="AIGB" className="w-8 h-8 object-contain" />
+            <img src={aigLogo} alt="AI Guard" className="w-8 h-8 object-contain" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
               <span className="font-semibold text-sidebar-accent-foreground text-sm block tracking-tight">
-                AIGB
+                AI Guard
               </span>
               <span className="text-[10px] text-sidebar-muted/50 block leading-none mt-0.5">
-                AI Governance Board
+                Agent Governance
               </span>
             </div>
           )}

@@ -1,5 +1,5 @@
 /**
- * Dashboard layout wrapper for AIGB
+ * Dashboard layout wrapper for AI Guard
  * Provides sidebar navigation and main content area
  */
 

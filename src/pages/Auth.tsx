@@ -1,5 +1,5 @@
 /**
- * Authentication page for AIGB
+ * Authentication page for AI Guard
  * Handles login and signup with email/password
  */
 
@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Shield, Lock, Eye } from "lucide-react";
-import aigbLogo from "@/assets/aigb-logo.png";
+import aigLogo from "@/assets/aig-logo.svg";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
@@ -124,8 +124,7 @@ export default function Auth() {
       <div className="w-full max-w-[420px] animate-fade-in">
         {/* Logo */}
         <div className="flex items-center justify-center gap-3 mb-10">
-          <img src={aigbLogo} alt="AIGB" className="h-10" />
-          <span className="text-2xl font-semibold text-foreground tracking-tight">AIGB</span>
+          <img src={aigLogo} alt="AI Guard" className="h-10" />
         </div>
 
         <Card className="border-border/60 shadow-xl shadow-black/5">
