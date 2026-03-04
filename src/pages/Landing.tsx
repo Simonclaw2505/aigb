@@ -326,7 +326,7 @@ export default function Landing() {
         <div className="max-w-xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 tracking-tight">Rejoignez la liste d'attente</h2>
           <p className="text-white/40 text-center mb-12">
-            Soyez parmi les premiers à sécuriser vos agents IA avec AIGB.
+            Soyez parmi les premiers à sécuriser vos agents IA avec AI Guard.
           </p>
 
           {submitted ? (
