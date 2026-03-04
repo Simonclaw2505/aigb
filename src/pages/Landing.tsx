@@ -138,7 +138,7 @@ export default function Landing() {
             {
               icon: Eye,
               title: "L'humain décide",
-              desc: "Les agents IA sont des outils puissants. AIGB garantit que vous gardez toujours le dernier mot.",
+              desc: "Les agents IA sont des outils puissants. AI Guard garantit que vous gardez toujours le dernier mot.",
             },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="p-7 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-300 group">
