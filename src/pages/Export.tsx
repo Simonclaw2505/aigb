@@ -78,13 +78,6 @@ export default function Export() {
     }
   }, [selectedProject, fetchExports]);
 
-  // Fetch exports when project changes
-  useEffect(() => {
-    if (selectedProject) {
-      fetchExports();
-    }
-  }, [selectedProject, fetchExports]);
-
   // Set preview to latest export
   useEffect(() => {
     if (exports.length > 0) {
