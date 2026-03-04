@@ -69,8 +69,8 @@ export default function Landing() {
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/[0.06] bg-[hsl(25,18%,6%)]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-3">
-            <img src={aigbLogo} alt="AIGB" className="h-8" />
-            <span className="text-sm font-semibold text-white/80 tracking-tight">AI Governance Board</span>
+            <img src={aigLogo} alt="AI Guard" className="h-8" />
+            <span className="text-sm font-semibold text-white/80 tracking-tight">AI Guard</span>
           </div>
           <Button
             variant="outline"
