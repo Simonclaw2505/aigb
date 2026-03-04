@@ -1,5 +1,5 @@
 /**
- * AIGB Landing Page
+ * AI Guard Landing Page
  * "Make the future safe" — AI Governance for enterprises and individuals
  */
 
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import aigbLogo from "@/assets/aigb-logo.png";
+import aigLogo from "@/assets/aig-logo.svg";
 
 type ProspectType = "enterprise" | "individual" | null;
 
@@ -69,8 +69,8 @@ export default function Landing() {
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/[0.06] bg-[hsl(25,18%,6%)]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-3">
-            <img src={aigbLogo} alt="AIGB" className="h-8" />
-            <span className="text-sm font-semibold text-white/80 tracking-tight">AI Governance Board</span>
+            <img src={aigLogo} alt="AI Guard" className="h-8" />
+            <span className="text-sm font-semibold text-white/80 tracking-tight">AI Guard</span>
           </div>
           <Button
             variant="outline"
@@ -106,7 +106,7 @@ export default function Landing() {
           </h1>
           <p className="text-lg md:text-xl text-white/40 max-w-2xl mx-auto mb-12 leading-relaxed font-light">
             Décidez précisément ce que vos agents IA peuvent faire, accéder et décider.
-            AIGB met la gouvernance de l'IA à portée de toute entreprise — sans expertise technique.
+            AI Guard met la gouvernance de l'IA à portée de toute entreprise — sans expertise technique.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
@@ -138,7 +138,7 @@ export default function Landing() {
             {
               icon: Eye,
               title: "L'humain décide",
-              desc: "Les agents IA sont des outils puissants. AIGB garantit que vous gardez toujours le dernier mot.",
+              desc: "Les agents IA sont des outils puissants. AI Guard garantit que vous gardez toujours le dernier mot.",
             },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="p-7 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-300 group">
@@ -173,7 +173,7 @@ export default function Landing() {
                   </div>
                   <h3 className="text-lg font-semibold mb-3 tracking-tight">Connectez vos outils</h3>
                   <p className="text-sm text-white/40 leading-relaxed mb-4">
-                    Importez vos APIs métier en quelques clics. Chaque outil connecté devient disponible dans AIGB, prêt à être utilisé par vos agents de manière encadrée.
+                    Importez vos APIs métier en quelques clics. Chaque outil connecté devient disponible dans AI Guard, prêt à être utilisé par vos agents de manière encadrée.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {["CRM", "Paiement", "Stock", "Facturation", "Logistique", "Email"].map((tool) => (
@@ -259,7 +259,7 @@ export default function Landing() {
                   </div>
                   <h3 className="text-lg font-semibold mb-3 tracking-tight">Des garde-fous à chaque niveau</h3>
                   <p className="text-sm text-white/40 leading-relaxed mb-4">
-                    AIGB intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet.
+                    AI Guard intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet.
                   </p>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {[
@@ -326,7 +326,7 @@ export default function Landing() {
         <div className="max-w-xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 tracking-tight">Rejoignez la liste d'attente</h2>
           <p className="text-white/40 text-center mb-12">
-            Soyez parmi les premiers à sécuriser vos agents IA avec AIGB.
+            Soyez parmi les premiers à sécuriser vos agents IA avec AI Guard.
           </p>
 
           {submitted ? (
@@ -337,7 +337,7 @@ export default function Landing() {
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Merci pour votre inscription !</h3>
                 <p className="text-white/40">
-                  Notre équipe vous contactera très prochainement pour vous présenter AIGB
+                  Notre équipe vous contactera très prochainement pour vous présenter AI Guard
                   et répondre à toutes vos questions.
                 </p>
               </CardContent>
@@ -497,8 +497,8 @@ export default function Landing() {
       <footer className="border-t border-white/[0.04] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/25">
           <div className="flex items-center gap-2">
-            <img src={aigbLogo} alt="AIGB" className="h-5 opacity-40" />
-            <span>© {new Date().getFullYear()} AIGB. Tous droits réservés.</span>
+            <img src={aigLogo} alt="AI Guard" className="h-5 opacity-40" />
+            <span>© {new Date().getFullYear()} AI Guard. Tous droits réservés.</span>
           </div>
           <span className="font-medium tracking-wide">Make the future safe.</span>
         </div>

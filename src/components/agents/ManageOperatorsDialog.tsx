@@ -56,7 +56,7 @@ async function hashKey(key: string): Promise<string> {
 
 function generateOperatorKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "aigb_op_";
+  let result = "aig_op_";
   for (let i = 0; i < 32; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
