@@ -64,18 +64,18 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(220,20%,4%)] text-white">
+    <div className="min-h-screen bg-[hsl(25,18%,6%)] text-[hsl(30,10%,92%)]">
       {/* Navigation */}
-      <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/10 bg-[hsl(220,20%,4%)]/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16">
+      <nav className="fixed top-0 inset-x-0 z-50 border-b border-white/[0.06] bg-[hsl(25,18%,6%)]/80 backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-3">
             <img src={aigbLogo} alt="AIGB" className="h-8" />
-            <span className="text-sm font-semibold text-white/90">AI Governance Board</span>
+            <span className="text-sm font-semibold text-white/80 tracking-tight">AI Governance Board</span>
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="border-white/10 bg-transparent text-white/80 hover:text-white hover:bg-white/10"
+            className="border-white/10 bg-white/[0.04] text-white/70 hover:text-white hover:bg-white/[0.08] rounded-lg"
             onClick={() => navigate("/auth")}
           >
             Se connecter
@@ -84,24 +84,34 @@ export default function Landing() {
       </nav>
 
       {/* Hero */}
-      <section className="relative pt-32 pb-20 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(220,70%,50%)]/10 via-transparent to-transparent" />
-        <div className="max-w-5xl mx-auto text-center relative z-10">
-          <img src={aigbLogo} alt="AIGB" className="h-16 md:h-20 mx-auto mb-8 drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]" />
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
+      <section className="relative pt-36 pb-24 px-6 overflow-hidden">
+        {/* Warm gradient orb */}
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[hsl(24,80%,50%)]/[0.08] rounded-full blur-[120px]" />
+        <div className="absolute top-40 left-1/4 w-[300px] h-[300px] bg-[hsl(38,85%,55%)]/[0.05] rounded-full blur-[100px]" />
+        
+        <div className="max-w-4xl mx-auto text-center relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] mb-8">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(24,80%,55%)] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[hsl(24,80%,55%)]" />
+            </span>
+            <span className="text-xs font-medium text-white/50">Plateforme en accès anticipé</span>
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-bold tracking-[-0.03em] leading-[1.05] mb-7">
             Pilotez vos agents IA{" "}
-            <span className="bg-gradient-to-r from-[hsl(220,70%,55%)] to-[hsl(260,70%,65%)] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[hsl(24,80%,55%)] via-[hsl(38,85%,58%)] to-[hsl(24,80%,55%)] bg-clip-text text-transparent">
               en confiance
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg md:text-xl text-white/40 max-w-2xl mx-auto mb-12 leading-relaxed font-light">
             Décidez précisément ce que vos agents IA peuvent faire, accéder et décider.
             AIGB met la gouvernance de l'IA à portée de toute entreprise — sans expertise technique.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
-              className="bg-[hsl(220,70%,50%)] hover:bg-[hsl(220,70%,45%)] text-white px-8 h-12 text-base"
+              className="bg-[hsl(24,80%,50%)] hover:bg-[hsl(24,80%,45%)] text-white px-8 h-12 text-base rounded-xl shadow-lg shadow-[hsl(24,80%,50%)]/20 transition-all hover:shadow-xl hover:shadow-[hsl(24,80%,50%)]/25"
               onClick={() => document.getElementById("signup")?.scrollIntoView({ behavior: "smooth" })}
             >
               Rejoindre la liste d'attente
@@ -112,8 +122,8 @@ export default function Landing() {
       </section>
 
       {/* Value props */}
-      <section className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
+      <section className="py-24 px-6 border-t border-white/[0.04]">
+        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-6">
           {[
             {
               icon: Shield,
@@ -131,44 +141,43 @@ export default function Landing() {
               desc: "Les agents IA sont des outils puissants. AIGB garantit que vous gardez toujours le dernier mot.",
             },
           ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-[hsl(220,70%,50%)]/10 flex items-center justify-center mb-4">
-                <Icon className="w-5 h-5 text-[hsl(220,70%,55%)]" />
+            <div key={title} className="p-7 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-300 group">
+              <div className="w-11 h-11 rounded-xl bg-[hsl(24,80%,50%)]/10 flex items-center justify-center mb-5 group-hover:bg-[hsl(24,80%,50%)]/15 transition-colors">
+                <Icon className="w-5 h-5 text-[hsl(24,80%,55%)]" />
               </div>
-              <h3 className="text-lg font-semibold mb-2">{title}</h3>
-              <p className="text-sm text-white/50 leading-relaxed">{desc}</p>
+              <h3 className="text-lg font-semibold mb-2.5 tracking-tight">{title}</h3>
+              <p className="text-sm text-white/40 leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Process */}
-      <section className="py-20 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">Comment ça marche</h2>
-          <p className="text-white/50 text-center mb-14 max-w-2xl mx-auto">
+      <section className="py-24 px-6 border-t border-white/[0.04]">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 tracking-tight">Comment ça marche</h2>
+          <p className="text-white/40 text-center mb-16 max-w-2xl mx-auto">
             En 5 étapes, reprenez le contrôle total sur ce que vos agents IA peuvent faire.
           </p>
 
-          <div className="space-y-8">
+          <div className="space-y-5">
             {/* Step 1 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(220,70%,50%)]/[0.06] to-transparent overflow-hidden group">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-[hsl(220,70%,50%)]/[0.04] rounded-full blur-3xl" />
+            <div className="relative p-7 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[hsl(24,80%,50%)]/[0.04] to-transparent overflow-hidden group hover:border-white/[0.1] transition-all duration-300">
               <div className="flex items-start gap-5 relative z-10">
-                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(220,70%,50%)] to-[hsl(260,70%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(220,70%,50%)]/20">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(24,80%,50%)] to-[hsl(38,85%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(24,80%,50%)]/15">
                   <Plug className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xs font-mono text-[hsl(220,70%,60%)] bg-[hsl(220,70%,50%)]/10 px-2 py-0.5 rounded-full">Étape 1</span>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-[11px] font-mono text-[hsl(24,80%,60%)] bg-[hsl(24,80%,50%)]/10 px-2.5 py-0.5 rounded-full">Étape 1</span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-3">Connectez vos outils</h3>
-                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                  <h3 className="text-lg font-semibold mb-3 tracking-tight">Connectez vos outils</h3>
+                  <p className="text-sm text-white/40 leading-relaxed mb-4">
                     Importez vos APIs métier en quelques clics. Chaque outil connecté devient disponible dans AIGB, prêt à être utilisé par vos agents de manière encadrée.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {["CRM", "Paiement", "Stock", "Facturation", "Logistique", "Email"].map((tool) => (
-                      <span key={tool} className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-white/60">
+                      <span key={tool} className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-white/50">
                         {tool}
                       </span>
                     ))}
@@ -178,18 +187,17 @@ export default function Landing() {
             </div>
 
             {/* Step 2 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(260,70%,50%)]/[0.06] to-transparent overflow-hidden">
-              <div className="absolute bottom-0 left-0 w-40 h-40 bg-[hsl(260,70%,55%)]/[0.04] rounded-full blur-3xl" />
+            <div className="relative p-7 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[hsl(280,50%,45%)]/[0.04] to-transparent overflow-hidden hover:border-white/[0.1] transition-all duration-300">
               <div className="flex items-start gap-5 relative z-10">
-                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(260,70%,55%)] to-[hsl(300,60%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(260,70%,55%)]/20">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(280,50%,45%)] to-[hsl(320,45%,50%)] flex items-center justify-center shadow-lg shadow-[hsl(280,50%,45%)]/15">
                   <Bot className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xs font-mono text-[hsl(260,70%,65%)] bg-[hsl(260,70%,55%)]/10 px-2 py-0.5 rounded-full">Étape 2</span>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-[11px] font-mono text-[hsl(280,50%,60%)] bg-[hsl(280,50%,45%)]/10 px-2.5 py-0.5 rounded-full">Étape 2</span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-3">Configurez vos agents</h3>
-                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                  <h3 className="text-lg font-semibold mb-3 tracking-tight">Configurez vos agents</h3>
+                  <p className="text-sm text-white/40 leading-relaxed mb-4">
                     Créez vos agents IA par fonction et assignez-leur les outils dont ils ont besoin.
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -198,9 +206,9 @@ export default function Landing() {
                       { name: "Vente", tools: "CRM, Paiement" },
                       { name: "Comptabilité", tools: "Facturation, Paiement" },
                     ].map(({ name, tools }) => (
-                      <div key={name} className="p-3 rounded-xl bg-white/[0.04] border border-white/8">
-                        <div className="text-sm font-medium text-white/80 mb-1">{name}</div>
-                        <div className="text-xs text-white/35">{tools}</div>
+                      <div key={name} className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                        <div className="text-sm font-medium text-white/70 mb-1">{name}</div>
+                        <div className="text-xs text-white/30">{tools}</div>
                       </div>
                     ))}
                   </div>
@@ -209,27 +217,26 @@ export default function Landing() {
             </div>
 
             {/* Step 3 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(30,80%,50%)]/[0.06] to-transparent overflow-hidden">
-              <div className="absolute top-0 left-1/2 w-40 h-40 bg-[hsl(30,80%,50%)]/[0.04] rounded-full blur-3xl" />
+            <div className="relative p-7 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[hsl(38,85%,50%)]/[0.04] to-transparent overflow-hidden hover:border-white/[0.1] transition-all duration-300">
               <div className="flex items-start gap-5 relative z-10">
-                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(30,80%,50%)] to-[hsl(15,80%,50%)] flex items-center justify-center shadow-lg shadow-[hsl(30,80%,50%)]/20">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(38,85%,50%)] to-[hsl(24,80%,48%)] flex items-center justify-center shadow-lg shadow-[hsl(38,85%,50%)]/15">
                   <SlidersHorizontal className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xs font-mono text-[hsl(30,80%,55%)] bg-[hsl(30,80%,50%)]/10 px-2 py-0.5 rounded-full">Étape 3</span>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-[11px] font-mono text-[hsl(38,85%,58%)] bg-[hsl(38,85%,50%)]/10 px-2.5 py-0.5 rounded-full">Étape 3</span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-3">Limitez et sécurisez chaque action</h3>
-                  <p className="text-sm text-white/50 leading-relaxed mb-4">
-                    Permissions granulaires par agent <strong className="text-white/70">et</strong> par utilisateur.
+                  <h3 className="text-lg font-semibold mb-3 tracking-tight">Limitez et sécurisez chaque action</h3>
+                  <p className="text-sm text-white/40 leading-relaxed mb-4">
+                    Permissions granulaires par agent <strong className="text-white/60">et</strong> par utilisateur.
                     Chaque action peut être autorisée, bloquée, soumise à confirmation ou à approbation.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {[
-                      { label: "Lecture seule", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
-                      { label: "Écriture sûre", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
-                      { label: "Écriture risquée", color: "bg-amber-500/15 text-amber-400 border-amber-500/20" },
-                      { label: "Irréversible", color: "bg-red-500/15 text-red-400 border-red-500/20" },
+                      { label: "Lecture seule", color: "bg-[hsl(152,60%,42%)]/12 text-[hsl(152,60%,52%)] border-[hsl(152,60%,42%)]/15" },
+                      { label: "Écriture sûre", color: "bg-[hsl(210,70%,50%)]/12 text-[hsl(210,70%,60%)] border-[hsl(210,70%,50%)]/15" },
+                      { label: "Écriture risquée", color: "bg-[hsl(38,85%,50%)]/12 text-[hsl(38,85%,58%)] border-[hsl(38,85%,50%)]/15" },
+                      { label: "Irréversible", color: "bg-[hsl(0,72%,51%)]/12 text-[hsl(0,72%,60%)] border-[hsl(0,72%,51%)]/15" },
                     ].map(({ label, color }) => (
                       <span key={label} className={`text-xs px-3 py-1.5 rounded-lg border ${color}`}>
                         {label}
@@ -241,34 +248,33 @@ export default function Landing() {
             </div>
 
             {/* Step 4 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/[0.06] to-transparent overflow-hidden">
-              <div className="absolute bottom-0 right-0 w-40 h-40 bg-emerald-500/[0.04] rounded-full blur-3xl" />
+            <div className="relative p-7 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[hsl(152,60%,42%)]/[0.04] to-transparent overflow-hidden hover:border-white/[0.1] transition-all duration-300">
               <div className="flex items-start gap-5 relative z-10">
-                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(152,60%,42%)] to-[hsl(170,50%,40%)] flex items-center justify-center shadow-lg shadow-[hsl(152,60%,42%)]/15">
                   <ShieldCheck className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">Étape 4</span>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-[11px] font-mono text-[hsl(152,60%,52%)] bg-[hsl(152,60%,42%)]/10 px-2.5 py-0.5 rounded-full">Étape 4</span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-3">Des garde-fous à chaque niveau</h3>
-                  <p className="text-sm text-white/50 leading-relaxed mb-4">
+                  <h3 className="text-lg font-semibold mb-3 tracking-tight">Des garde-fous à chaque niveau</h3>
+                  <p className="text-sm text-white/40 leading-relaxed mb-4">
                     AIGB intègre des mécanismes de sécurité avancés pour que rien ne passe entre les mailles du filet.
                   </p>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {[
-                      { icon: Fingerprint, label: "Multi-signature", desc: "Plusieurs admins valident les actions critiques.", color: "text-violet-400" },
-                      { icon: KeyRound, label: "Code PIN unique", desc: "Chaque admin a un code pour les opérations sensibles.", color: "text-amber-400" },
-                      { icon: Gauge, label: "Quotas journaliers", desc: "Limites sur les actions risquées.", color: "text-rose-400" },
-                      { icon: History, label: "Audit & rollback", desc: "Chaque action tracée et réversible.", color: "text-blue-400" },
-                      { icon: FlaskConical, label: "Politique sandbox", desc: "Test obligatoire avant la production.", color: "text-emerald-400" },
-                      { icon: Timer, label: "Rate limiting", desc: "Contrôle des requêtes par agent.", color: "text-cyan-400" },
+                      { icon: Fingerprint, label: "Multi-signature", desc: "Plusieurs admins valident les actions critiques.", color: "text-[hsl(280,50%,60%)]" },
+                      { icon: KeyRound, label: "Code PIN unique", desc: "Chaque admin a un code pour les opérations sensibles.", color: "text-[hsl(38,85%,58%)]" },
+                      { icon: Gauge, label: "Quotas journaliers", desc: "Limites sur les actions risquées.", color: "text-[hsl(0,72%,60%)]" },
+                      { icon: History, label: "Audit & rollback", desc: "Chaque action tracée et réversible.", color: "text-[hsl(210,70%,60%)]" },
+                      { icon: FlaskConical, label: "Politique sandbox", desc: "Test obligatoire avant la production.", color: "text-[hsl(152,60%,52%)]" },
+                      { icon: Timer, label: "Rate limiting", desc: "Contrôle des requêtes par agent.", color: "text-[hsl(190,60%,55%)]" },
                     ].map(({ icon: Icon, label, desc, color }) => (
-                      <div key={label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors">
+                      <div key={label} className="flex items-start gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-colors">
                         <Icon className={`w-5 h-5 ${color} mt-0.5 flex-shrink-0`} />
                         <div>
-                          <span className="text-sm font-medium text-white/80">{label}</span>
-                          <p className="text-xs text-white/40 mt-0.5">{desc}</p>
+                          <span className="text-sm font-medium text-white/70">{label}</span>
+                          <p className="text-xs text-white/35 mt-0.5">{desc}</p>
                         </div>
                       </div>
                     ))}
@@ -278,33 +284,32 @@ export default function Landing() {
             </div>
 
             {/* Step 5 */}
-            <div className="relative p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[hsl(280,70%,50%)]/[0.06] to-transparent overflow-hidden">
-              <div className="absolute top-0 left-0 w-40 h-40 bg-[hsl(280,70%,50%)]/[0.04] rounded-full blur-3xl" />
+            <div className="relative p-7 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[hsl(210,70%,50%)]/[0.04] to-transparent overflow-hidden hover:border-white/[0.1] transition-all duration-300">
               <div className="flex items-start gap-5 relative z-10">
-                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(280,70%,50%)] to-[hsl(320,60%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(280,70%,50%)]/20">
+                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-[hsl(210,70%,50%)] to-[hsl(230,60%,55%)] flex items-center justify-center shadow-lg shadow-[hsl(210,70%,50%)]/15">
                   <Users className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xs font-mono text-[hsl(280,70%,60%)] bg-[hsl(280,70%,50%)]/10 px-2 py-0.5 rounded-full">Étape 5</span>
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <span className="text-[11px] font-mono text-[hsl(210,70%,60%)] bg-[hsl(210,70%,50%)]/10 px-2.5 py-0.5 rounded-full">Étape 5</span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-3">Identifiez chaque utilisateur</h3>
-                  <p className="text-sm text-white/50 leading-relaxed mb-4">
-                    Chaque personne qui utilise un agent possède un <strong className="text-white/70">rôle d'opérateur</strong> (Admin, Opérateur, Lecteur)
-                    qui détermine ses droits. Avant d'exécuter une action sensible, l'utilisateur doit fournir sa <strong className="text-white/70">clé unique personnelle</strong> pour
+                  <h3 className="text-lg font-semibold mb-3 tracking-tight">Identifiez chaque utilisateur</h3>
+                  <p className="text-sm text-white/40 leading-relaxed mb-4">
+                    Chaque personne qui utilise un agent possède un <strong className="text-white/60">rôle d'opérateur</strong> (Admin, Opérateur, Lecteur)
+                    qui détermine ses droits. Avant d'exécuter une action sensible, l'utilisateur doit fournir sa <strong className="text-white/60">clé unique personnelle</strong> pour
                     prouver son identité — sans jamais avoir besoin d'un compte sur la plateforme.
                   </p>
                   <div className="grid sm:grid-cols-3 gap-2">
                     {[
-                      { icon: KeyRound, label: "Clé unique", desc: "Identifie l'opérateur à chaque action.", color: "text-amber-400" },
-                      { icon: Shield, label: "Rôles granulaires", desc: "Admin, Opérateur ou Lecteur par agent.", color: "text-violet-400" },
-                      { icon: Lock, label: "Sans compte requis", desc: "Pas besoin de créer un compte utilisateur.", color: "text-cyan-400" },
+                      { icon: KeyRound, label: "Clé unique", desc: "Identifie l'opérateur à chaque action.", color: "text-[hsl(38,85%,58%)]" },
+                      { icon: Shield, label: "Rôles granulaires", desc: "Admin, Opérateur ou Lecteur par agent.", color: "text-[hsl(280,50%,60%)]" },
+                      { icon: Lock, label: "Sans compte requis", desc: "Pas besoin de créer un compte utilisateur.", color: "text-[hsl(190,60%,55%)]" },
                     ].map(({ icon: Icon, label, desc, color }) => (
-                      <div key={label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-colors">
+                      <div key={label} className="flex items-start gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-colors">
                         <Icon className={`w-5 h-5 ${color} mt-0.5 flex-shrink-0`} />
                         <div>
-                          <span className="text-sm font-medium text-white/80">{label}</span>
-                          <p className="text-xs text-white/40 mt-0.5">{desc}</p>
+                          <span className="text-sm font-medium text-white/70">{label}</span>
+                          <p className="text-xs text-white/35 mt-0.5">{desc}</p>
                         </div>
                       </div>
                     ))}
@@ -317,21 +322,21 @@ export default function Landing() {
       </section>
 
       {/* Sign-up form */}
-      <section id="signup" className="py-20 px-6 border-t border-white/5">
+      <section id="signup" className="py-24 px-6 border-t border-white/[0.04]">
         <div className="max-w-xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">Rejoignez la liste d'attente</h2>
-          <p className="text-white/50 text-center mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 tracking-tight">Rejoignez la liste d'attente</h2>
+          <p className="text-white/40 text-center mb-12">
             Soyez parmi les premiers à sécuriser vos agents IA avec AIGB.
           </p>
 
           {submitted ? (
-            <Card className="border-white/10 bg-white/[0.03]">
+            <Card className="border-white/[0.06] bg-white/[0.02]">
               <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-8 h-8 text-green-400" />
+                <div className="w-16 h-16 rounded-full bg-[hsl(152,60%,42%)]/10 flex items-center justify-center mx-auto mb-4">
+                  <Check className="w-8 h-8 text-[hsl(152,60%,52%)]" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">Merci pour votre inscription !</h3>
-                <p className="text-white/50">
+                <p className="text-white/40">
                   Notre équipe vous contactera très prochainement pour vous présenter AIGB
                   et répondre à toutes vos questions.
                 </p>
@@ -344,21 +349,21 @@ export default function Landing() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <button
                     onClick={() => setProspectType("enterprise")}
-                    className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-[hsl(220,70%,55%)]/50 transition-all text-left group"
+                    className="p-7 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-[hsl(24,80%,55%)]/30 transition-all duration-300 text-left group"
                   >
-                    <Building2 className="w-8 h-8 text-[hsl(220,70%,55%)] mb-3 group-hover:scale-110 transition-transform" />
-                    <h3 className="font-semibold text-lg mb-1">Entreprise</h3>
-                    <p className="text-sm text-white/50">
+                    <Building2 className="w-8 h-8 text-[hsl(24,80%,55%)] mb-4 group-hover:scale-110 transition-transform" />
+                    <h3 className="font-semibold text-lg mb-1.5 tracking-tight">Entreprise</h3>
+                    <p className="text-sm text-white/40">
                       Sécurisez les agents IA de votre organisation
                     </p>
                   </button>
                   <button
                     onClick={() => setProspectType("individual")}
-                    className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-[hsl(220,70%,55%)]/50 transition-all text-left group"
+                    className="p-7 rounded-2xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-[hsl(24,80%,55%)]/30 transition-all duration-300 text-left group"
                   >
-                    <User className="w-8 h-8 text-[hsl(220,70%,55%)] mb-3 group-hover:scale-110 transition-transform" />
-                    <h3 className="font-semibold text-lg mb-1">Particulier</h3>
-                    <p className="text-sm text-white/50">
+                    <User className="w-8 h-8 text-[hsl(24,80%,55%)] mb-4 group-hover:scale-110 transition-transform" />
+                    <h3 className="font-semibold text-lg mb-1.5 tracking-tight">Particulier</h3>
+                    <p className="text-sm text-white/40">
                       Gardez le contrôle sur vos outils IA personnels
                     </p>
                   </button>
@@ -368,14 +373,14 @@ export default function Landing() {
                   <button
                     type="button"
                     onClick={() => setProspectType(null)}
-                    className="text-sm text-white/40 hover:text-white/70 transition-colors mb-2"
+                    className="text-sm text-white/35 hover:text-white/60 transition-colors mb-2"
                   >
                     ← {prospectType === "enterprise" ? "Entreprise" : "Particulier"} · Changer
                   </button>
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-white/70">Prénom *</Label>
+                      <Label htmlFor="firstName" className="text-white/60 text-xs font-medium">Prénom *</Label>
                       <Input
                         id="firstName"
                         name="firstName"
@@ -383,12 +388,12 @@ export default function Landing() {
                         maxLength={100}
                         value={form.firstName}
                         onChange={handleChange}
-                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                        className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/25 rounded-lg focus:border-[hsl(24,80%,55%)]/50 focus:ring-[hsl(24,80%,55%)]/20"
                         placeholder="Jean"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-white/70">Nom *</Label>
+                      <Label htmlFor="lastName" className="text-white/60 text-xs font-medium">Nom *</Label>
                       <Input
                         id="lastName"
                         name="lastName"
@@ -396,14 +401,14 @@ export default function Landing() {
                         maxLength={100}
                         value={form.lastName}
                         onChange={handleChange}
-                        className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                        className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/25 rounded-lg focus:border-[hsl(24,80%,55%)]/50 focus:ring-[hsl(24,80%,55%)]/20"
                         placeholder="Dupont"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-white/70">Email *</Label>
+                    <Label htmlFor="email" className="text-white/60 text-xs font-medium">Email *</Label>
                     <Input
                       id="email"
                       name="email"
@@ -412,7 +417,7 @@ export default function Landing() {
                       maxLength={255}
                       value={form.email}
                       onChange={handleChange}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                      className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/25 rounded-lg focus:border-[hsl(24,80%,55%)]/50 focus:ring-[hsl(24,80%,55%)]/20"
                       placeholder="jean@exemple.com"
                     />
                   </div>
@@ -420,7 +425,7 @@ export default function Landing() {
                   {prospectType === "enterprise" && (
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="company" className="text-white/70">Entreprise *</Label>
+                        <Label htmlFor="company" className="text-white/60 text-xs font-medium">Entreprise *</Label>
                         <Input
                           id="company"
                           name="company"
@@ -428,19 +433,19 @@ export default function Landing() {
                           maxLength={200}
                           value={form.company}
                           onChange={handleChange}
-                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                          className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/25 rounded-lg focus:border-[hsl(24,80%,55%)]/50 focus:ring-[hsl(24,80%,55%)]/20"
                           placeholder="Acme Corp"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="jobTitle" className="text-white/70">Poste</Label>
+                        <Label htmlFor="jobTitle" className="text-white/60 text-xs font-medium">Poste</Label>
                         <Input
                           id="jobTitle"
                           name="jobTitle"
                           maxLength={200}
                           value={form.jobTitle}
                           onChange={handleChange}
-                          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                          className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/25 rounded-lg focus:border-[hsl(24,80%,55%)]/50 focus:ring-[hsl(24,80%,55%)]/20"
                           placeholder="CTO"
                         />
                       </div>
@@ -448,7 +453,7 @@ export default function Landing() {
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-white/70">Téléphone</Label>
+                    <Label htmlFor="phone" className="text-white/60 text-xs font-medium">Téléphone</Label>
                     <Input
                       id="phone"
                       name="phone"
@@ -456,20 +461,20 @@ export default function Landing() {
                       maxLength={30}
                       value={form.phone}
                       onChange={handleChange}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+                      className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/25 rounded-lg focus:border-[hsl(24,80%,55%)]/50 focus:ring-[hsl(24,80%,55%)]/20"
                       placeholder="+33 6 12 34 56 78"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="message" className="text-white/70">Message (optionnel)</Label>
+                    <Label htmlFor="message" className="text-white/60 text-xs font-medium">Message (optionnel)</Label>
                     <Textarea
                       id="message"
                       name="message"
                       maxLength={1000}
                       value={form.message}
                       onChange={handleChange}
-                      className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-[80px]"
+                      className="bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/25 rounded-lg min-h-[80px] focus:border-[hsl(24,80%,55%)]/50 focus:ring-[hsl(24,80%,55%)]/20"
                       placeholder="Dites-nous en plus sur votre besoin…"
                     />
                   </div>
@@ -477,7 +482,7 @@ export default function Landing() {
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-[hsl(220,70%,50%)] hover:bg-[hsl(220,70%,45%)] text-white h-12 text-base"
+                    className="w-full bg-[hsl(24,80%,50%)] hover:bg-[hsl(24,80%,45%)] text-white h-12 text-base rounded-xl shadow-lg shadow-[hsl(24,80%,50%)]/20"
                   >
                     {loading ? "Envoi en cours…" : "S'inscrire à la liste d'attente"}
                   </Button>
@@ -489,13 +494,13 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 py-8 px-6">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/30">
+      <footer className="border-t border-white/[0.04] py-10 px-6">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/25">
           <div className="flex items-center gap-2">
-            <img src={aigbLogo} alt="AIGB" className="h-5 opacity-50" />
+            <img src={aigbLogo} alt="AIGB" className="h-5 opacity-40" />
             <span>© {new Date().getFullYear()} AIGB. Tous droits réservés.</span>
           </div>
-          <span>Make the future safe.</span>
+          <span className="font-medium tracking-wide">Make the future safe.</span>
         </div>
       </footer>
     </div>

@@ -1,7 +1,6 @@
 /**
- * Authentication page for MCP Foundry
+ * Authentication page for AIGB
  * Handles login and signup with email/password
- * OWASP A03/A07: Zod validation + password strength indicator + rate limiting UI
  */
 
 import { useState, useCallback } from "react";
@@ -14,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2, Shield, Lock, Eye } from "lucide-react";
+import aigbLogo from "@/assets/aigb-logo.png";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
@@ -45,7 +45,6 @@ export default function Auth() {
       return;
     }
 
-    // Validate with Zod
     const result = signInSchema.safeParse({ email, password });
     if (!result.success) {
       const errors: Record<string, string> = {};
@@ -122,33 +121,31 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md animate-fade-in">
+      <div className="w-full max-w-[420px] animate-fade-in">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <Zap className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <span className="text-2xl font-semibold text-foreground">AIGB</span>
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <img src={aigbLogo} alt="AIGB" className="h-10" />
+          <span className="text-2xl font-semibold text-foreground tracking-tight">AIGB</span>
         </div>
 
-        <Card className="border-border/50 shadow-lg">
-          <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl">Bienvenue</CardTitle>
-            <CardDescription>
+        <Card className="border-border/60 shadow-xl shadow-black/5">
+          <CardHeader className="text-center pb-2 pt-8">
+            <CardTitle className="text-xl tracking-tight">Bienvenue</CardTitle>
+            <CardDescription className="text-sm mt-1">
               Pilotez vos agents IA en toute confiance
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-7 pb-7">
             <Tabs defaultValue="signin" className="w-full" onValueChange={() => setFieldErrors({})}>
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="signin">Se connecter</TabsTrigger>
-                <TabsTrigger value="signup">Créer un compte</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 mb-6 h-10 rounded-lg">
+                <TabsTrigger value="signin" className="rounded-md text-sm">Se connecter</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-md text-sm">Créer un compte</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signin">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email">Adresse e-mail</Label>
+                    <Label htmlFor="signin-email" className="text-xs font-medium">Adresse e-mail</Label>
                     <Input
                       id="signin-email"
                       type="email"
@@ -158,13 +155,14 @@ export default function Auth() {
                       required
                       disabled={loading || isLockedOut}
                       autoComplete="email"
+                      className="h-11 rounded-lg"
                     />
                     {fieldErrors.email && (
                       <p className="text-sm text-destructive">{fieldErrors.email}</p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Mot de passe</Label>
+                    <Label htmlFor="signin-password" className="text-xs font-medium">Mot de passe</Label>
                     <Input
                       id="signin-password"
                       type="password"
@@ -174,14 +172,15 @@ export default function Auth() {
                       required
                       disabled={loading || isLockedOut}
                       autoComplete="current-password"
+                      className="h-11 rounded-lg"
                     />
                     {fieldErrors.password && (
                       <p className="text-sm text-destructive">{fieldErrors.password}</p>
                     )}
                   </div>
-                  <Button type="submit" className="w-full" disabled={loading || isLockedOut}>
+                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading || isLockedOut}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isLockedOut ? "Verrouillé temporairement" : "Sign In"}
+                    {isLockedOut ? "Verrouillé temporairement" : "Se connecter"}
                   </Button>
                 </form>
               </TabsContent>
@@ -189,23 +188,24 @@ export default function Auth() {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Nom complet</Label>
+                    <Label htmlFor="signup-name" className="text-xs font-medium">Nom complet</Label>
                     <Input
                       id="signup-name"
                       type="text"
-                      placeholder="Jane Smith"
+                      placeholder="Jean Dupont"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       disabled={loading}
                       autoComplete="name"
                       maxLength={100}
+                      className="h-11 rounded-lg"
                     />
                     {fieldErrors.fullName && (
                       <p className="text-sm text-destructive">{fieldErrors.fullName}</p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Adresse e-mail</Label>
+                    <Label htmlFor="signup-email" className="text-xs font-medium">Adresse e-mail</Label>
                     <Input
                       id="signup-email"
                       type="email"
@@ -215,13 +215,14 @@ export default function Auth() {
                       required
                       disabled={loading}
                       autoComplete="email"
+                      className="h-11 rounded-lg"
                     />
                     {fieldErrors.email && (
                       <p className="text-sm text-destructive">{fieldErrors.email}</p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Mot de passe</Label>
+                    <Label htmlFor="signup-password" className="text-xs font-medium">Mot de passe</Label>
                     <Input
                       id="signup-password"
                       type="password"
@@ -231,13 +232,13 @@ export default function Auth() {
                       required
                       disabled={loading}
                       autoComplete="new-password"
+                      className="h-11 rounded-lg"
                     />
                     {fieldErrors.password && (
                       <p className="text-sm text-destructive">{fieldErrors.password}</p>
                     )}
-                    {/* Password strength indicator */}
                     {passwordStrength && (
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex gap-1">
                           {[0, 1, 2, 3, 4].map((i) => (
                             <div
@@ -256,32 +257,33 @@ export default function Auth() {
                       </div>
                     )}
                   </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Account
+                    Créer mon compte
                   </Button>
                 </form>
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
+
         {/* Trust signals */}
-        <div className="mt-6 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+        <div className="mt-8 flex items-center justify-center gap-8 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-1.5">
-            <span className="text-green-500">🔒</span>
-            <span>Données chiffrées AES-256</span>
+            <Lock className="h-3 w-3 text-primary/60" />
+            <span>Chiffrement AES-256</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-blue-500">👁️</span>
+            <Eye className="h-3 w-3 text-primary/60" />
             <span>Contrôle total</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-emerald-500">✅</span>
+            <Shield className="h-3 w-3 text-primary/60" />
             <span>Accès sécurisé</span>
           </div>
         </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="text-center text-xs text-muted-foreground/60 mt-6">
           En continuant, vous acceptez nos Conditions d'utilisation
         </p>
       </div>
