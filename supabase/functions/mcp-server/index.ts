@@ -18,8 +18,7 @@ serve(async (req) => {
   try {
     const rawKey=req.headers.get("x-api-key")??req.headers.get("X-API-Key");
     if(!rawKey) return j({jsonrpc:"2.0",id:null,error:{code:-32600,message:"Missing X-API-Key"}},401);
-    const enc=new TextEncoder();
-    const hb=await crypto.subtle.digest("SHA-256",enc.encode(rawKey));
+    const hb=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(rawKey));
     const kh=Array.from(new Uint8Array(hb)).map(b=>b.toString(16).padStart(2,"0")).join("");
     const su=Deno.env.get("SUPABASE_URL")!;
     const sk=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -44,8 +43,7 @@ serve(async (req) => {
       if(ce) return je(id,-32603,"Failed to load: "+ce.message);
       // deno-lint-ignore no-explicit-any
       const tools=(caps??[]).filter((c:any)=>c.action_templates).map((c:any)=>{
-        const at=c.action_templates;
-        const ok=c.agent_policy==="require_confirmation"||c.agent_policy==="require_approval";
+        const at=c.action_templates,ok=c.agent_policy==="require_confirmation"||c.agent_policy==="require_approval";
         return{name:at.id,description:(at.description??at.name)+(ok?" [requires approval]":""),inputSchema:at.input_schema??{type:"object",properties:{}}};
       });
       return j({jsonrpc:"2.0",id,result:{tools}});
