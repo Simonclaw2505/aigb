@@ -89,14 +89,14 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto text-center relative z-10">
           <img src={aigbLogo} alt="AIGB" className="h-16 md:h-20 mx-auto mb-8 drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]" />
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
-            Make the future{" "}
+            Pilotez vos agents IA{" "}
             <span className="bg-gradient-to-r from-[hsl(220,70%,55%)] to-[hsl(260,70%,65%)] bg-clip-text text-transparent">
-              safe
+              en confiance
             </span>
           </h1>
           <p className="text-lg md:text-xl text-white/60 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Gardez le contrôle sur vos agents IA. Dans un monde où l'IA devient omniprésente,
-            AIGB optimise la bonne gouvernance de vos agents, et améliore la sécurité et la traçabilité de vos données.
+            Décidez précisément ce que vos agents IA peuvent faire, accéder et décider.
+            AIGB met la gouvernance de l'IA à portée de toute entreprise — sans expertise technique.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
