@@ -106,7 +106,7 @@ export default function Landing() {
           </h1>
           <p className="text-lg md:text-xl text-white/40 max-w-2xl mx-auto mb-12 leading-relaxed font-light">
             Décidez précisément ce que vos agents IA peuvent faire, accéder et décider.
-            AIGB met la gouvernance de l'IA à portée de toute entreprise — sans expertise technique.
+            AI Guard met la gouvernance de l'IA à portée de toute entreprise — sans expertise technique.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
