@@ -1,33 +1,37 @@
 
 
-## Diagnostic
+## Plan: Bouton "Sélectionner / Désélectionner tout" sur la page Actions
 
-The `body_template` for your SendGrid action contains `{{html_content}}` as a placeholder. But the LLM (generate-plan) produces input field names based on the action's `input_schema` — likely something like `message`, `body`, or `text`. Since there's no field literally called `html_content` in the inputs, the placeholder stays unresolved and gets sent as-is to SendGrid.
+### Contexte
+L'utilisateur veut un bouton toggle au niveau des onglets "Endpoints" / "Actions" (en haut à droite de la `TabsList`) pour activer ou désactiver toutes les actions d'un coup.
 
-The existing extraction logic (lines 666-676 of action-runner) already handles some mappings (`content[0].value` → `html_content`, `html` → `html_content`), but misses common synonyms the LLM might use.
+### Changements dans `src/pages/Actions.tsx`
 
-## Root Cause
+1. **Wrapper la `TabsList`** dans un `div flex justify-between items-center` pour placer le bouton à droite au même niveau.
 
-The `applyBodyTemplate` function preserves unresolved placeholders verbatim (line 232): if `inputs["html_content"]` is undefined, `{{html_content}}` stays in the output.
+2. **Ajouter un bouton "Select All / Deselect All"** qui :
+   - Sur l'onglet **actions** : toggle `is_enabled` sur toutes les actions (bulk update dans `action_templates`).
+   - Sur l'onglet **endpoints** : pas de sens (les endpoints ne sont pas activables), donc le bouton ne s'affiche que quand `activeTab === "actions"` et qu'il y a des actions.
+   - Label dynamique : "Enable All" si au moins une action est désactivée, "Disable All" si toutes sont activées.
 
-## Fix — action-runner/index.ts
+3. **Fonction `handleToggleAllActions`** :
+   - Détermine si on active ou désactive tout (`allEnabled = actions.every(a => a.is_enabled)`).
+   - Fait un `supabase.from("action_templates").update({ is_enabled: !allEnabled }).eq("project_id", currentProject.id)`.
+   - Met à jour le state local `setActions(...)`.
+   - Affiche un toast de confirmation.
 
-Expand the field normalization block (around lines 666-676) to also map common content field names to `html_content` before template resolution:
-
+### Rendu visuel (ligne ~646)
+```tsx
+<div className="flex items-center justify-between">
+  <TabsList>
+    <TabsTrigger value="endpoints">Endpoints ({endpoints.length})</TabsTrigger>
+    <TabsTrigger value="actions">Actions ({actions.length})</TabsTrigger>
+  </TabsList>
+  {activeTab === "actions" && actions.length > 0 && (
+    <Button variant="outline" size="sm" onClick={handleToggleAllActions}>
+      {allEnabled ? "Disable All" : "Enable All"}
+    </Button>
+  )}
+</div>
 ```
-// After existing html → html_content mapping, add:
-const contentAliases = ["message", "body", "text", "email_body", "email_content"];
-if (!templateInputs.html_content) {
-  for (const alias of contentAliases) {
-    if (templateInputs[alias] && typeof templateInputs[alias] === "string") {
-      templateInputs.html_content = templateInputs[alias];
-      break;
-    }
-  }
-}
-```
-
-This ensures that regardless of what field name the LLM chooses for the email content, it gets mapped to `html_content` before the `body_template` placeholders are resolved.
-
-**Single file change**: `supabase/functions/action-runner/index.ts` (~5 lines added after line 676).
 
