@@ -1,38 +1,56 @@
 
 
-# Fix: les placeholders du body_template ne sont pas resolus
+## Diagnostic
 
-## Probleme
+The problem is straightforward: **all state in the Import page is ephemeral React `useState`**. When you navigate away and come back, the component unmounts and remounts — all form fields reset to empty.
 
-L'erreur SendGrid "The from email does not contain a valid address" vient du fait que les placeholders `{{from}}`, `{{to}}`, etc. ne sont **pas remplaces** dans le body_template. SendGrid recoit litteralement la chaine `"{{from}}"` au lieu de l'adresse email.
+This affects:
+1. **`useApiImport` hook** — `parsedSpec`, `selectedEndpoints`, `rawContent` all reset to `null`/empty
+2. **`Import.tsx`** — `specUrl`, `specJson`, `importMode`, `activeTab` all reset
+3. **`ManualApiConfig`** — `name`, `baseUrl`, `authType`, `endpoints[]` all reset
 
-**Cause racine** : le simulateur envoie les inputs sous la forme `{body: {from: "...", to: "...", subject: "...", html: "..."}}` (objet imbrique), mais `applyBodyTemplate` cherche les cles `from`, `to`, `subject`, `html_content` **au premier niveau** de `modifiedInputs`. Comme elles sont imbriquees dans `body`, les placeholders restent non resolus.
+## Root Cause
 
-## Solution
+React Router remounts components on navigation. There is no persistence (sessionStorage, React context, or global state) to survive navigation.
 
-Modifier `action-runner/index.ts` (lignes 623-631) pour aplatir les inputs avant d'appliquer le body_template : si `modifiedInputs` contient une cle `body` qui est un objet, utiliser son contenu comme source des placeholders.
+## Solution: Persist form state in `sessionStorage`
 
-### Changement technique
+The lightest fix that doesn't add features or change UX — just prevent data loss:
 
-Dans `supabase/functions/action-runner/index.ts`, avant l'appel a `applyBodyTemplate`, ajouter une logique de "flattening" :
+### 1. Create a `useSessionState` utility hook
+A drop-in replacement for `useState` that syncs to `sessionStorage`. Data survives navigation but clears when the browser tab closes (appropriate for draft form data).
 
-```typescript
-// Flatten: if inputs have a nested "body" object, merge its keys to top level
-// so that body_template placeholders like {{from}} can be resolved
-let templateInputs = modifiedInputs;
-if (modifiedInputs.body && typeof modifiedInputs.body === "object" && !Array.isArray(modifiedInputs.body)) {
-  templateInputs = { ...modifiedInputs, ...(modifiedInputs.body as Record<string, unknown>) };
-}
-const transformedBody = applyBodyTemplate(bodyTemplate, templateInputs);
+```ts
+// src/hooks/useSessionState.ts
+function useSessionState<T>(key: string, initialValue: T): [T, SetState<T>]
 ```
+- Serializes to JSON on every update
+- Reads from sessionStorage on mount
+- Provides a `clear` helper
 
-Egalement, ajouter un mapping `html` vers `html_content` car le simulateur envoie `html` mais le template attend `{{html_content}}` :
+### 2. Apply to `Import.tsx`
+Replace `useState` with `useSessionState` for:
+- `importMode` → `sessionStorage` key `"import_mode"`
+- `specUrl` → `"import_spec_url"`
+- `specJson` → `"import_spec_json"`
+- `activeTab` → `"import_active_tab"`
 
-```typescript
-if (templateInputs.html && !templateInputs.html_content) {
-  templateInputs.html_content = templateInputs.html;
-}
-```
+### 3. Apply to `useApiImport.ts`
+Persist the `ImportState` object (minus the `status` field which should always reset to `"idle"`):
+- `parsedSpec` → `"import_parsed_spec"`
+- `selectedEndpoints` (serialize `Set` as array) → `"import_selected_endpoints"`
+- `rawContent` → `"import_raw_content"`
+- `sourceUrl` → `"import_source_url"`
 
-Un seul fichier a modifier : `supabase/functions/action-runner/index.ts`.
+### 4. Apply to `ManualApiConfig.tsx`
+Persist manual form fields:
+- `apiName`, `baseUrl`, `description`, `authType`, `authHeaderName`, `extraHeaders`, `endpoints[]`
+- Key prefix: `"manual_api_"`
+- Clear all keys on successful save (already calls `onSuccess`)
+
+### What stays the same
+- No new UI elements, buttons, or features
+- `reset()` function will also clear sessionStorage keys
+- Successful save clears the persisted draft
+- Data from `?library=` query param still takes priority over persisted data
 
