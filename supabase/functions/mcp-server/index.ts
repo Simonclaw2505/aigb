@@ -265,17 +265,24 @@ serve(async (req: Request) => {
       return rpcOk(id, { content: [{ type: "text", text: JSON.stringify({ status: "pending_approval", message: "Human approval required." }) }] });
     }
 
-    // Forward to action-runner
+    // Forward to action-runner — pass the original API key so action-runner
+    // authenticates via its X-API-Key path (not Bearer which expects a user JWT)
     const runnerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/action-runner`;
+    const runnerHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
+      "X-API-Key": rawKey,
+      "x-mcp-server-call": "true",
+    };
+    // Forward operator key if present
+    const incomingOperatorKey = req.headers.get("x-operator-key");
+    if (incomingOperatorKey) {
+      runnerHeaders["X-Operator-Key"] = incomingOperatorKey;
+    }
     const runnerResp = await fetch(runnerUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
-        "x-mcp-server-call": "true",
-      },
-      body: JSON.stringify({ action_template_id: resolvedTemplateId, input_parameters: toolArgs }),
+      headers: runnerHeaders,
+      body: JSON.stringify({ action_template_id: resolvedTemplateId, inputs: toolArgs }),
     });
 
     if (!runnerResp.ok) {
