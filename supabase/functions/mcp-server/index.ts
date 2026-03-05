@@ -232,13 +232,15 @@ serve(async (req: Request) => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/;
     let resolvedTemplateId = toolName;
     if (!uuidRegex.test(toolName)) {
-      const { data: tpl } = await supabase
+      const { data: tpls } = await supabase
         .from("action_templates")
         .select("id")
         .eq("project_id", projectId)
         .eq("name", toolName)
-        .maybeSingle();
-      if (tpl) resolvedTemplateId = tpl.id;
+        .eq("is_enabled", true)
+        .eq("status", "active")
+        .limit(1);
+      if (tpls && tpls.length > 0) resolvedTemplateId = tpls[0].id;
     }
 
     // Verify the tool is allowed for this project
