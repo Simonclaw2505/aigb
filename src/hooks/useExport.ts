@@ -399,6 +399,11 @@ export function useExport({ projectId }: UseExportOptions) {
     [projectId]
   );
 
+  const getMcpServerEndpoint = useCallback(() => {
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+    return `${baseUrl}/functions/v1/mcp-server`;
+  }, []);
+
   return {
     exports,
     loading,
@@ -409,6 +414,7 @@ export function useExport({ projectId }: UseExportOptions) {
     downloadExport,
     copyToClipboard,
     getApiEndpoint,
+    getMcpServerEndpoint,
   };
 }
 

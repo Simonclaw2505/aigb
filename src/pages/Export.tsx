@@ -262,13 +262,52 @@ export default function Export() {
             </CardContent>
           </Card>
 
-          {/* API Endpoint */}
+          {/* Endpoints */}
           <div className="space-y-6">
+            {/* MCP Server for AI Agents */}
+            <Card className="border-primary/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5" />
+                  MCP Server (for AI agents)
+                </CardTitle>
+                <CardDescription>
+                  Use this URL with GPT, Claude, Cursor or any MCP client
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={getMcpServerEndpoint()}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyMcpEndpoint}
+                  >
+                    {mcpCopied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Authenticate with your API key (Settings → API Keys) via the{" "}
+                  <code className="bg-muted px-1 rounded">Authorization: Bearer</code> header
+                  or <code className="bg-muted px-1 rounded">X-API-Key</code> header.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* REST API Endpoint */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Link className="h-5 w-5" />
-                  API Endpoint
+                  API Endpoint (REST)
                 </CardTitle>
                 <CardDescription>
                   Fetch the latest export programmatically

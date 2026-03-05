@@ -127,10 +127,16 @@ serve(async (req: Request) => {
   }
 
   // ── API key validation ─────────────────────────────────────────────────────
-  const rawKey = req.headers.get("x-api-key") ?? "";
+  let rawKey = req.headers.get("x-api-key") ?? "";
+  if (!rawKey) {
+    const authHeader = req.headers.get("authorization") ?? "";
+    if (authHeader.startsWith("Bearer ")) {
+      rawKey = authHeader.slice(7);
+    }
+  }
 
   if (!rawKey) {
-    return jsonResp({ jsonrpc: "2.0", id, error: { code: -32600, message: "Missing X-API-Key header" } }, 401);
+    return jsonResp({ jsonrpc: "2.0", id, error: { code: -32600, message: "Missing API key — send via X-API-Key or Authorization: Bearer header" } }, 401);
   }
 
   // Format check — all valid keys are prefixed with mcpf_
