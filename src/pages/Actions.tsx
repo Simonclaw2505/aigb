@@ -389,6 +389,33 @@ export default function Actions() {
     }
   };
 
+  // Toggle all actions enabled/disabled
+  const allEnabled = actions.length > 0 && actions.every((a) => a.is_enabled);
+
+  const handleToggleAllActions = async () => {
+    if (!currentProject) return;
+    const newEnabled = !allEnabled;
+    try {
+      const { error } = await supabase
+        .from("action_templates")
+        .update({ is_enabled: newEnabled })
+        .eq("project_id", currentProject.id);
+
+      if (error) throw error;
+
+      setActions((prev) => prev.map((a) => ({ ...a, is_enabled: newEnabled })));
+      toast({
+        title: newEnabled ? "All actions enabled" : "All actions disabled",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Failed to update",
+        description: error.message,
+      });
+    }
+  };
+
   // Toggle action enabled
   const handleToggleEnabled = async (actionId: string, enabled: boolean) => {
     try {
@@ -644,14 +671,21 @@ export default function Actions() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="endpoints">
-              Endpoints ({endpoints.length})
-            </TabsTrigger>
-            <TabsTrigger value="actions">
-              Actions ({actions.length})
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="endpoints">
+                Endpoints ({endpoints.length})
+              </TabsTrigger>
+              <TabsTrigger value="actions">
+                Actions ({actions.length})
+              </TabsTrigger>
+            </TabsList>
+            {activeTab === "actions" && actions.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleToggleAllActions}>
+                {allEnabled ? "Disable All" : "Enable All"}
+              </Button>
+            )}
+          </div>
 
           <TabsContent value="endpoints" className="mt-6">
             {loading ? (
