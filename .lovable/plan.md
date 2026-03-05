@@ -2,55 +2,32 @@
 
 ## Diagnostic
 
-The problem is straightforward: **all state in the Import page is ephemeral React `useState`**. When you navigate away and come back, the component unmounts and remounts — all form fields reset to empty.
+The `body_template` for your SendGrid action contains `{{html_content}}` as a placeholder. But the LLM (generate-plan) produces input field names based on the action's `input_schema` — likely something like `message`, `body`, or `text`. Since there's no field literally called `html_content` in the inputs, the placeholder stays unresolved and gets sent as-is to SendGrid.
 
-This affects:
-1. **`useApiImport` hook** — `parsedSpec`, `selectedEndpoints`, `rawContent` all reset to `null`/empty
-2. **`Import.tsx`** — `specUrl`, `specJson`, `importMode`, `activeTab` all reset
-3. **`ManualApiConfig`** — `name`, `baseUrl`, `authType`, `endpoints[]` all reset
+The existing extraction logic (lines 666-676 of action-runner) already handles some mappings (`content[0].value` → `html_content`, `html` → `html_content`), but misses common synonyms the LLM might use.
 
 ## Root Cause
 
-React Router remounts components on navigation. There is no persistence (sessionStorage, React context, or global state) to survive navigation.
+The `applyBodyTemplate` function preserves unresolved placeholders verbatim (line 232): if `inputs["html_content"]` is undefined, `{{html_content}}` stays in the output.
 
-## Solution: Persist form state in `sessionStorage`
+## Fix — action-runner/index.ts
 
-The lightest fix that doesn't add features or change UX — just prevent data loss:
+Expand the field normalization block (around lines 666-676) to also map common content field names to `html_content` before template resolution:
 
-### 1. Create a `useSessionState` utility hook
-A drop-in replacement for `useState` that syncs to `sessionStorage`. Data survives navigation but clears when the browser tab closes (appropriate for draft form data).
-
-```ts
-// src/hooks/useSessionState.ts
-function useSessionState<T>(key: string, initialValue: T): [T, SetState<T>]
 ```
-- Serializes to JSON on every update
-- Reads from sessionStorage on mount
-- Provides a `clear` helper
+// After existing html → html_content mapping, add:
+const contentAliases = ["message", "body", "text", "email_body", "email_content"];
+if (!templateInputs.html_content) {
+  for (const alias of contentAliases) {
+    if (templateInputs[alias] && typeof templateInputs[alias] === "string") {
+      templateInputs.html_content = templateInputs[alias];
+      break;
+    }
+  }
+}
+```
 
-### 2. Apply to `Import.tsx`
-Replace `useState` with `useSessionState` for:
-- `importMode` → `sessionStorage` key `"import_mode"`
-- `specUrl` → `"import_spec_url"`
-- `specJson` → `"import_spec_json"`
-- `activeTab` → `"import_active_tab"`
+This ensures that regardless of what field name the LLM chooses for the email content, it gets mapped to `html_content` before the `body_template` placeholders are resolved.
 
-### 3. Apply to `useApiImport.ts`
-Persist the `ImportState` object (minus the `status` field which should always reset to `"idle"`):
-- `parsedSpec` → `"import_parsed_spec"`
-- `selectedEndpoints` (serialize `Set` as array) → `"import_selected_endpoints"`
-- `rawContent` → `"import_raw_content"`
-- `sourceUrl` → `"import_source_url"`
-
-### 4. Apply to `ManualApiConfig.tsx`
-Persist manual form fields:
-- `apiName`, `baseUrl`, `description`, `authType`, `authHeaderName`, `extraHeaders`, `endpoints[]`
-- Key prefix: `"manual_api_"`
-- Clear all keys on successful save (already calls `onSuccess`)
-
-### What stays the same
-- No new UI elements, buttons, or features
-- `reset()` function will also clear sessionStorage keys
-- Successful save clears the persisted draft
-- Data from `?library=` query param still takes priority over persisted data
+**Single file change**: `supabase/functions/action-runner/index.ts` (~5 lines added after line 676).
 
