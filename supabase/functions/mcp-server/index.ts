@@ -196,18 +196,18 @@ serve(async (req: Request) => {
   if (method === "tools/list") {
     const { data: capabilities, error: capError } = await supabase
       .from("agent_capabilities")
-      .select("action_template_id, agent_policy, action_templates(id, name, description, input_schema)")
+      .select("action_template_id, policy, action_templates(id, name, description, input_schema)")
       .eq("project_id", projectId)
       .eq("is_active", true)
-      .neq("agent_policy", "deny");
+      .neq("policy", "deny");
 
     if (capError) return rpcErr(id, -32603, "Failed to load tools");
 
     const tools = (capabilities ?? []).map((cap: Record<string, unknown>) => {
       const tpl = cap.action_templates as Record<string, unknown>;
       return {
-        name: tpl?.id,
-        description: `[${cap.agent_policy}] ${tpl?.description ?? tpl?.name}`,
+        name: tpl?.name ?? tpl?.id,
+        description: `[${cap.policy}] ${tpl?.description ?? tpl?.name}`,
         inputSchema: tpl?.input_schema ?? { type: "object", properties: {} },
       };
     });
@@ -228,21 +228,34 @@ serve(async (req: Request) => {
       return rpcErr(id, -32602, `Tool arguments too large (max ${MAX_ARGS_BYTES / 1024} KB)`);
     }
 
+    // ── Resolve tool name to action_template_id (support both UUID and name) ──
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/;
+    let resolvedTemplateId = toolName;
+    if (!uuidRegex.test(toolName)) {
+      const { data: tpl } = await supabase
+        .from("action_templates")
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("name", toolName)
+        .maybeSingle();
+      if (tpl) resolvedTemplateId = tpl.id;
+    }
+
     // Verify the tool is allowed for this project
     const { data: capability } = await supabase
       .from("agent_capabilities")
-      .select("agent_policy, action_templates(id, name, description, input_schema)")
+      .select("policy, action_templates(id, name, description, input_schema)")
       .eq("project_id", projectId)
-      .eq("action_template_id", toolName)
+      .eq("action_template_id", resolvedTemplateId)
       .eq("is_active", true)
       .maybeSingle();
 
     if (!capability) return rpcErr(id, -32602, "Tool not found or not permitted for this project");
-    if (capability.agent_policy === "deny") return rpcErr(id, -32602, "Tool denied by policy");
-    if (capability.agent_policy === "require_approval") {
+    if (capability.policy === "deny") return rpcErr(id, -32602, "Tool denied by policy");
+    if (capability.policy === "require_approval") {
       await supabase.from("approval_requests").insert({
         project_id: projectId,
-        action_template_id: toolName,
+        action_template_id: resolvedTemplateId,
         input_parameters: toolArgs,
         requested_by: "agent",
         status: "pending",
@@ -259,7 +272,7 @@ serve(async (req: Request) => {
         "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
         "x-mcp-server-call": "true",
       },
-      body: JSON.stringify({ action_template_id: toolName, input_parameters: toolArgs }),
+      body: JSON.stringify({ action_template_id: resolvedTemplateId, input_parameters: toolArgs }),
     });
 
     if (!runnerResp.ok) {
