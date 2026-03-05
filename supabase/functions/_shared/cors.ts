@@ -80,6 +80,11 @@ const isOriginAllowed = (origin: string): boolean => {
     return true;
   }
   
+  // Published app URLs (e.g. https://aigb.lovable.app)
+  if (origin.match(/^https:\/\/[a-z0-9-]+\.lovable\.app$/)) {
+    return true;
+  }
+  
   if (origin.match(/^https:\/\/[a-z0-9-]+\.lovableproject\.com$/)) {
     return true;
   }
