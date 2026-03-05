@@ -2,32 +2,27 @@
 
 ## Diagnostic
 
-The `body_template` for your SendGrid action contains `{{html_content}}` as a placeholder. But the LLM (generate-plan) produces input field names based on the action's `input_schema` — likely something like `message`, `body`, or `text`. Since there's no field literally called `html_content` in the inputs, the placeholder stays unresolved and gets sent as-is to SendGrid.
+The error "Failed to send a request to the Edge Function" comes from a **CORS rejection**. Your published URL `https://aigb.lovable.app` is blocked by the strict CORS allowlist in `supabase/functions/_shared/cors.ts`.
 
-The existing extraction logic (lines 666-676 of action-runner) already handles some mappings (`content[0].value` → `html_content`, `html` → `html_content`), but misses common synonyms the LLM might use.
+The current regex only allows Lovable preview URLs with the pattern `xxx--yyy.lovable.app` (line 79), but your published URL `aigb.lovable.app` has no `--` separator, so it gets rejected with a 403.
 
-## Root Cause
+## Fix
 
-The `applyBodyTemplate` function preserves unresolved placeholders verbatim (line 232): if `inputs["html_content"]` is undefined, `{{html_content}}` stays in the output.
+Update `supabase/functions/_shared/cors.ts` to also match simple subdomain patterns on `lovable.app` (published app URLs):
 
-## Fix — action-runner/index.ts
+**Line 79**: Add a second regex pattern to allow `https://*.lovable.app` (single subdomain, no `--`):
 
-Expand the field normalization block (around lines 666-676) to also map common content field names to `html_content` before template resolution:
+```ts
+// Existing: preview URLs
+if (origin.match(/^https:\/\/[a-z0-9-]+--[a-z0-9-]+\.lovable\.app$/)) {
+  return true;
+}
 
-```
-// After existing html → html_content mapping, add:
-const contentAliases = ["message", "body", "text", "email_body", "email_content"];
-if (!templateInputs.html_content) {
-  for (const alias of contentAliases) {
-    if (templateInputs[alias] && typeof templateInputs[alias] === "string") {
-      templateInputs.html_content = templateInputs[alias];
-      break;
-    }
-  }
+// NEW: published app URLs (e.g. https://aigb.lovable.app)
+if (origin.match(/^https:\/\/[a-z0-9-]+\.lovable\.app$/)) {
+  return true;
 }
 ```
 
-This ensures that regardless of what field name the LLM chooses for the email content, it gets mapped to `html_content` before the `body_template` placeholders are resolved.
-
-**Single file change**: `supabase/functions/action-runner/index.ts` (~5 lines added after line 676).
+**Single file change**: `supabase/functions/_shared/cors.ts` (~3 lines added after line 81).
 
