@@ -69,7 +69,10 @@ export default function Export() {
     downloadExport,
     copyToClipboard,
     getApiEndpoint,
+    getMcpServerEndpoint,
   } = useExport({ projectId: selectedProject });
+
+  const [mcpCopied, setMcpCopied] = useState(false);
 
   // Fetch exports when project changes
   useEffect(() => {
