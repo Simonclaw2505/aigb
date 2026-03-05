@@ -5,6 +5,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useSessionState, clearSessionKeys } from "@/hooks/useSessionState";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,11 +62,11 @@ interface ApiSource {
 export default function Import() {
   const [searchParams] = useSearchParams();
   const librarySlug = searchParams.get("library");
-  const [importMode, setImportMode] = useState<"manual" | "openapi">("manual");
+  const [importMode, setImportMode] = useSessionState<"manual" | "openapi">("import_mode", "manual");
   const [libraryData, setLibraryData] = useState<any>(null);
-  const [specUrl, setSpecUrl] = useState("");
-  const [specJson, setSpecJson] = useState("");
-  const [activeTab, setActiveTab] = useState("upload");
+  const [specUrl, setSpecUrl] = useSessionState("import_spec_url", "");
+  const [specJson, setSpecJson] = useSessionState("import_spec_json", "");
+  const [activeTab, setActiveTab] = useSessionState("import_active_tab", "upload");
   const [dragActive, setDragActive] = useState(false);
   const [apiSources, setApiSources] = useState<ApiSource[]>([]);
   const [loadingSources, setLoadingSources] = useState(false);
@@ -95,6 +96,7 @@ export default function Import() {
     organizationId: organization?.id || "",
     onSuccess: () => {
       // Reset form after successful save
+      clearSessionKeys("import_");
       setSpecUrl("");
       setSpecJson("");
     },

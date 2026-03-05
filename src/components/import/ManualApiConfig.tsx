@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import { useSessionState, clearSessionKeys } from "@/hooks/useSessionState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,14 +55,14 @@ interface ManualApiConfigProps {
 
 export function ManualApiConfig({ projectId, organizationId, onSuccess, initialData }: ManualApiConfigProps) {
   const { toast } = useToast();
-  const [baseUrl, setBaseUrl] = useState(initialData?.baseUrl || "");
-  const [apiName, setApiName] = useState(initialData?.name || "");
-  const [apiDescription, setApiDescription] = useState(initialData?.description || "");
-  const [authType, setAuthType] = useState(initialData?.authType || "bearer");
-  const [authHeaderName, setAuthHeaderName] = useState(initialData?.authHeaderName || "Authorization");
-  const [authValue, setAuthValue] = useState("");
-  const [extraHeaders, setExtraHeaders] = useState(initialData?.extraHeaders || "");
-  const [endpoints, setEndpoints] = useState<ManualEndpoint[]>(initialData?.endpoints || []);
+  const [baseUrl, setBaseUrl] = useSessionState("manual_api_base_url", initialData?.baseUrl || "");
+  const [apiName, setApiName] = useSessionState("manual_api_name", initialData?.name || "");
+  const [apiDescription, setApiDescription] = useSessionState("manual_api_description", initialData?.description || "");
+  const [authType, setAuthType] = useSessionState("manual_api_auth_type", initialData?.authType || "bearer");
+  const [authHeaderName, setAuthHeaderName] = useSessionState("manual_api_auth_header", initialData?.authHeaderName || "Authorization");
+  const [authValue, setAuthValue] = useState(""); // never persist secrets
+  const [extraHeaders, setExtraHeaders] = useSessionState("manual_api_extra_headers", initialData?.extraHeaders || "");
+  const [endpoints, setEndpoints] = useSessionState<ManualEndpoint[]>("manual_api_endpoints", initialData?.endpoints || []);
   const [testHistory, setTestHistory] = useState<TestHistoryEntry[]>([]);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -271,6 +272,8 @@ export function ManualApiConfig({ projectId, organizationId, onSuccess, initialD
         description: `"${apiName}" a été ajoutée avec ${endpoints.length} endpoint(s).`,
       });
 
+      // Clear persisted draft after successful save
+      clearSessionKeys("manual_api_");
       onSuccess?.();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Erreur lors de la sauvegarde";
