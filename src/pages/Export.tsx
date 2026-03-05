@@ -125,6 +125,13 @@ export default function Export() {
     setTimeout(() => setEndpointCopied(false), 2000);
   };
 
+  const handleCopyMcpEndpoint = async () => {
+    const endpoint = getMcpServerEndpoint();
+    await navigator.clipboard.writeText(endpoint);
+    setMcpCopied(true);
+    setTimeout(() => setMcpCopied(false), 2000);
+  };
+
   if (projectLoading) {
     return (
       <DashboardLayout title="Export" description="Generate MCP configuration for your AI agents">
