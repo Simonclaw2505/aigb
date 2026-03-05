@@ -674,6 +674,16 @@ serve(async (req) => {
           if (templateInputs.html && !templateInputs.html_content) {
             templateInputs.html_content = templateInputs.html;
           }
+          // Map common content aliases to html_content
+          const contentAliases = ["message", "body", "text", "email_body", "email_content"];
+          if (!templateInputs.html_content) {
+            for (const alias of contentAliases) {
+              if (templateInputs[alias] && typeof templateInputs[alias] === "string") {
+                templateInputs.html_content = templateInputs[alias];
+                break;
+              }
+            }
+          }
           const transformedBody = applyBodyTemplate(bodyTemplate, templateInputs);
           requestOptions.body = JSON.stringify(transformedBody);
         } else {
