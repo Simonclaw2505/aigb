@@ -272,6 +272,7 @@ serve(async (req: Request) => {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
         "x-mcp-server-call": "true",
       },
       body: JSON.stringify({ action_template_id: resolvedTemplateId, input_parameters: toolArgs }),
