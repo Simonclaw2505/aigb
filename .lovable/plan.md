@@ -1,34 +1,33 @@
 
 
-## Probleme
+## Diagnostic
 
-La page Export affiche l'URL `get-mcp-export` — c'est un endpoint REST classique qui sert le manifeste JSON/YAML et nécessite un **JWT utilisateur**. Ce n'est **pas** un serveur MCP.
+The `body_template` for your SendGrid action contains `{{html_content}}` as a placeholder. But the LLM (generate-plan) produces input field names based on the action's `input_schema` — likely something like `message`, `body`, or `text`. Since there's no field literally called `html_content` in the inputs, the placeholder stays unresolved and gets sent as-is to SendGrid.
 
-Pour connecter un agent GPT (ou tout client MCP), il faut l'URL du **serveur MCP JSON-RPC** : `.../functions/v1/mcp-server`.
+The existing extraction logic (lines 666-676 of action-runner) already handles some mappings (`content[0].value` → `html_content`, `html` → `html_content`), but misses common synonyms the LLM might use.
 
-## Plan
+## Root Cause
 
-Ajouter une section "MCP Server URL" sur la page Export, en plus de l'endpoint API existant :
+The `applyBodyTemplate` function preserves unresolved placeholders verbatim (line 232): if `inputs["html_content"]` is undefined, `{{html_content}}` stays in the output.
 
-### 1. Ajouter un helper `getMcpServerEndpoint` dans `useExport.ts`
+## Fix — action-runner/index.ts
 
-```ts
-const getMcpServerEndpoint = useCallback(() => {
-  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
-  return `${baseUrl}/functions/v1/mcp-server`;
-}, []);
+Expand the field normalization block (around lines 666-676) to also map common content field names to `html_content` before template resolution:
+
+```
+// After existing html → html_content mapping, add:
+const contentAliases = ["message", "body", "text", "email_body", "email_content"];
+if (!templateInputs.html_content) {
+  for (const alias of contentAliases) {
+    if (templateInputs[alias] && typeof templateInputs[alias] === "string") {
+      templateInputs.html_content = templateInputs[alias];
+      break;
+    }
+  }
+}
 ```
 
-### 2. Ajouter une carte "MCP Server" dans `Export.tsx`
+This ensures that regardless of what field name the LLM chooses for the email content, it gets mapped to `html_content` before the `body_template` placeholders are resolved.
 
-Juste après la carte "API Endpoint", ajouter une carte dédiée au serveur MCP avec :
-- L'URL `mcp-server` en lecture seule (copiable)
-- Un rappel : "Use this URL with GPT, Claude, Cursor or any MCP client. Authenticate with your API key (Settings > API Keys) via the `Authorization: Bearer` header."
-
-### 3. Renommer les labels pour clarifier
-
-- Carte existante : "API Endpoint (REST)" — pour télécharger le manifeste
-- Nouvelle carte : "MCP Server (for AI agents)" — pour connecter un client MCP
-
-**Fichiers modifiés** : `src/hooks/useExport.ts` (~4 lignes), `src/pages/Export.tsx` (~25 lignes).
+**Single file change**: `supabase/functions/action-runner/index.ts` (~5 lines added after line 676).
 
