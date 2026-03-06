@@ -262,17 +262,7 @@ export default function Auth() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-start space-x-2 mt-2">
-                    <Checkbox
-                      id="gdpr-consent"
-                      checked={gdprConsent}
-                      onCheckedChange={(checked) => setGdprConsent(checked === true)}
-                      disabled={loading}
-                    />
-                    <Label htmlFor="gdpr-consent" className="text-xs text-muted-foreground leading-tight cursor-pointer">
-                      J'accepte la politique de confidentialité et le traitement de mes données personnelles
-                    </Label>
-                  </div>
+                  <div id="privyo-consent" className="mt-2"></div>
                   {fieldErrors.gdpr && (
                     <p className="text-sm text-destructive">{fieldErrors.gdpr}</p>
                   )}
