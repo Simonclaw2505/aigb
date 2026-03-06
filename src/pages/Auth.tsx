@@ -91,6 +91,11 @@ export default function Auth() {
     e.preventDefault();
     setFieldErrors({});
 
+    if (!gdprConsent) {
+      setFieldErrors({ gdpr: "Vous devez accepter la politique de confidentialité" });
+      return;
+    }
+
     const result = signUpSchema.safeParse({ email, password, fullName: fullName || undefined });
     if (!result.success) {
       const errors: Record<string, string> = {};
