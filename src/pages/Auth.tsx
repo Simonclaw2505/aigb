@@ -151,6 +151,8 @@ export default function Auth() {
       script.remove();
     };
   }, []);
+
+  return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-[420px] animate-fade-in">
         {/* Logo */}
