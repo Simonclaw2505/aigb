@@ -128,13 +128,17 @@ export default function Auth() {
 
   // Load Privyo widget inline in signup form when tab is active
   useEffect(() => {
-    if (activeTab !== "signup" || privyoLoaded.current) return;
+    if (activeTab !== "signup") return;
+
+    // Reset consent state each time we enter signup tab
+    setGdprConsent(false);
 
     const timer = setTimeout(() => {
       const target = document.getElementById("privyo-consent");
       if (!target) return;
 
-      privyoLoaded.current = true;
+      // Clear previous widget content to avoid duplicates
+      target.innerHTML = "";
 
       const script = document.createElement("script");
       script.src = "https://privyo-consent-guardian.lovable.app/widget.js";
@@ -152,28 +156,21 @@ export default function Auth() {
         }
       };
 
-      // After script loads, check if widget rendered or not
       script.onload = () => {
         setTimeout(checkConsent, 1500);
       };
 
-      // If script fails to load, don't block registration
       script.onerror = () => {
         setGdprConsent(true);
       };
 
-      // Ultimate fallback: if nothing happens after 3s, unblock
       const fallbackTimer = setTimeout(() => {
-        if (!gdprConsent) {
-          checkConsent();
-          // If still no widget after 3s, just enable
-          setTimeout(() => {
-            setGdprConsent(true);
-          }, 500);
-        }
-      }, 3000);
+        checkConsent();
+        setTimeout(() => {
+          setGdprConsent((prev) => prev || true);
+        }, 500);
+      }, 4000);
 
-      // Detect consent via DOM changes
       const observer = new MutationObserver(() => {
         const text = target.textContent || "";
         if (text.includes("enregistré") || text.includes("Consentement enregistré")) {
@@ -182,7 +179,6 @@ export default function Auth() {
       });
       observer.observe(target, { childList: true, subtree: true, characterData: true });
 
-      // Fallback: listen for clicks
       const handleClick = () => {
         setTimeout(() => {
           const text = target.textContent || "";
@@ -193,10 +189,19 @@ export default function Auth() {
       };
       target.addEventListener("click", handleClick);
 
-      return () => clearTimeout(fallbackTimer);
+      return () => {
+        clearTimeout(fallbackTimer);
+        observer.disconnect();
+        target.removeEventListener("click", handleClick);
+      };
     }, 100);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Clean up widget container when leaving signup tab
+      const target = document.getElementById("privyo-consent");
+      if (target) target.innerHTML = "";
+    };
   }, [activeTab]);
 
   return (
