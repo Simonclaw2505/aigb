@@ -145,17 +145,34 @@ export default function Auth() {
       script.async = true;
       target.appendChild(script);
 
-      // After script loads, check if widget rendered or not (consent already given = no widget)
-      script.onload = () => {
-        setTimeout(() => {
-          const text = target.textContent || "";
-          // If widget didn't render any interactive content, consent was already stored
-          const hasWidget = target.querySelector("button, form, input");
-          if (!hasWidget || text.includes("enregistré")) {
-            setGdprConsent(true);
-          }
-        }, 1000);
+      const checkConsent = () => {
+        const text = target.textContent || "";
+        const hasWidget = target.querySelector("button, form, input, iframe");
+        if (!hasWidget || text.includes("enregistré") || text.includes("Consentement enregistré")) {
+          setGdprConsent(true);
+        }
       };
+
+      // After script loads, check if widget rendered or not
+      script.onload = () => {
+        setTimeout(checkConsent, 1500);
+      };
+
+      // If script fails to load, don't block registration
+      script.onerror = () => {
+        setGdprConsent(true);
+      };
+
+      // Ultimate fallback: if nothing happens after 3s, unblock
+      const fallbackTimer = setTimeout(() => {
+        if (!gdprConsent) {
+          checkConsent();
+          // If still no widget after 3s, just enable
+          setTimeout(() => {
+            setGdprConsent(true);
+          }, 500);
+        }
+      }, 3000);
 
       // Detect consent via DOM changes
       const observer = new MutationObserver(() => {
@@ -176,6 +193,8 @@ export default function Auth() {
         }, 500);
       };
       target.addEventListener("click", handleClick);
+
+      return () => clearTimeout(fallbackTimer);
     }, 100);
 
     return () => clearTimeout(timer);
