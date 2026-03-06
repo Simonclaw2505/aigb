@@ -3,7 +3,7 @@
  * Handles login and signup with email/password
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Shield, Lock, Eye } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import aigLogo from "@/assets/aig-logo.svg";
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -125,6 +124,33 @@ export default function Auth() {
   }, [email, password, fullName, gdprConsent, toast]);
 
   const passwordStrength = password.length > 0 ? evaluatePasswordStrength(password) : null;
+
+  // Load Privyo widget inline in signup form
+  useEffect(() => {
+    const target = document.getElementById("privyo-consent");
+    if (!target) return;
+
+    // Inject script dynamically
+    const script = document.createElement("script");
+    script.src = "https://fa4be116-055d-4827-8894-b21b1fe97aaf.lovableproject.com/widget.js";
+    script.setAttribute("data-api-key", "pk_8a1aaabaac2049eb88fde2c2eb27e93b");
+    script.setAttribute("data-mode", "inline");
+    script.setAttribute("data-target", "#privyo-consent");
+    script.async = true;
+    target.appendChild(script);
+
+    // Observe DOM changes to detect consent
+    const observer = new MutationObserver(() => {
+      const checked = target.querySelector("input[type='checkbox']:checked");
+      setGdprConsent(!!checked);
+    });
+    observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["checked"] });
+
+    return () => {
+      observer.disconnect();
+      script.remove();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -263,17 +289,7 @@ export default function Auth() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-start space-x-2 mt-2">
-                    <Checkbox
-                      id="gdpr-consent"
-                      checked={gdprConsent}
-                      onCheckedChange={(checked) => setGdprConsent(checked === true)}
-                      disabled={loading}
-                    />
-                    <Label htmlFor="gdpr-consent" className="text-xs text-muted-foreground leading-tight cursor-pointer">
-                      J'accepte la politique de confidentialité et le traitement de mes données personnelles
-                    </Label>
-                  </div>
+                  <div id="privyo-consent" className="mt-2"></div>
                   {fieldErrors.gdpr && (
                     <p className="text-sm text-destructive">{fieldErrors.gdpr}</p>
                   )}
