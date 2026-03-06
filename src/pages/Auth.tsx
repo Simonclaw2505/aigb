@@ -127,32 +127,35 @@ export default function Auth() {
 
   const passwordStrength = password.length > 0 ? evaluatePasswordStrength(password) : null;
 
-  // Load Privyo widget inline in signup form
+  // Load Privyo widget inline in signup form when tab is active
   useEffect(() => {
-    const target = document.getElementById("privyo-consent");
-    if (!target) return;
+    if (activeTab !== "signup" || privyoLoaded.current) return;
 
-    // Inject script dynamically
-    const script = document.createElement("script");
-    script.src = "https://fa4be116-055d-4827-8894-b21b1fe97aaf.lovableproject.com/widget.js";
-    script.setAttribute("data-api-key", "pk_8a1aaabaac2049eb88fde2c2eb27e93b");
-    script.setAttribute("data-mode", "inline");
-    script.setAttribute("data-target", "#privyo-consent");
-    script.async = true;
-    target.appendChild(script);
+    // Small delay to ensure DOM is rendered
+    const timer = setTimeout(() => {
+      const target = document.getElementById("privyo-consent");
+      if (!target) return;
 
-    // Observe DOM changes to detect consent
-    const observer = new MutationObserver(() => {
-      const checked = target.querySelector("input[type='checkbox']:checked");
-      setGdprConsent(!!checked);
-    });
-    observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["checked"] });
+      privyoLoaded.current = true;
 
-    return () => {
-      observer.disconnect();
-      script.remove();
-    };
-  }, []);
+      const script = document.createElement("script");
+      script.src = "https://fa4be116-055d-4827-8894-b21b1fe97aaf.lovableproject.com/widget.js";
+      script.setAttribute("data-api-key", "pk_8a1aaabaac2049eb88fde2c2eb27e93b");
+      script.setAttribute("data-mode", "inline");
+      script.setAttribute("data-target", "#privyo-consent");
+      script.async = true;
+      target.appendChild(script);
+
+      // Observe DOM changes to detect consent
+      const observer = new MutationObserver(() => {
+        const checked = target.querySelector("input[type='checkbox']:checked");
+        setGdprConsent(!!checked);
+      });
+      observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["checked"] });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
