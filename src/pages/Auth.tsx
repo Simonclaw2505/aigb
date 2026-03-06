@@ -263,7 +263,21 @@ export default function Auth() {
                       </div>
                     )}
                   </div>
-                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading}>
+                  <div className="flex items-start space-x-2 mt-2">
+                    <Checkbox
+                      id="gdpr-consent"
+                      checked={gdprConsent}
+                      onCheckedChange={(checked) => setGdprConsent(checked === true)}
+                      disabled={loading}
+                    />
+                    <Label htmlFor="gdpr-consent" className="text-xs text-muted-foreground leading-tight cursor-pointer">
+                      J'accepte la politique de confidentialité et le traitement de mes données personnelles
+                    </Label>
+                  </div>
+                  {fieldErrors.gdpr && (
+                    <p className="text-sm text-destructive">{fieldErrors.gdpr}</p>
+                  )}
+                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading || !gdprConsent}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Créer mon compte
                   </Button>
