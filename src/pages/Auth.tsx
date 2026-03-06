@@ -145,7 +145,19 @@ export default function Auth() {
       script.async = true;
       target.appendChild(script);
 
-      // Detect consent via DOM changes — the widget shows "Consentement enregistré" on success
+      // After script loads, check if widget rendered or not (consent already given = no widget)
+      script.onload = () => {
+        setTimeout(() => {
+          const text = target.textContent || "";
+          // If widget didn't render any interactive content, consent was already stored
+          const hasWidget = target.querySelector("button, form, input");
+          if (!hasWidget || text.includes("enregistré")) {
+            setGdprConsent(true);
+          }
+        }, 1000);
+      };
+
+      // Detect consent via DOM changes
       const observer = new MutationObserver(() => {
         const text = target.textContent || "";
         if (text.includes("enregistré") || text.includes("Consentement enregistré")) {
@@ -154,7 +166,7 @@ export default function Auth() {
       });
       observer.observe(target, { childList: true, subtree: true, characterData: true });
 
-      // Also listen for clicks inside the widget (fallback)
+      // Fallback: listen for clicks
       const handleClick = () => {
         setTimeout(() => {
           const text = target.textContent || "";
@@ -164,11 +176,6 @@ export default function Auth() {
         }, 500);
       };
       target.addEventListener("click", handleClick);
-
-      return () => {
-        observer.disconnect();
-        target.removeEventListener("click", handleClick);
-      };
     }, 100);
 
     return () => clearTimeout(timer);
