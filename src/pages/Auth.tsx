@@ -173,7 +173,7 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-7 pb-7">
-            <Tabs defaultValue="signin" className="w-full" onValueChange={() => setFieldErrors({})}>
+            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFieldErrors({}); }} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 h-10 rounded-lg">
                 <TabsTrigger value="signin" className="rounded-md text-sm">Se connecter</TabsTrigger>
                 <TabsTrigger value="signup" className="rounded-md text-sm">Créer un compte</TabsTrigger>
