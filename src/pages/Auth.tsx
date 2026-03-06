@@ -26,6 +26,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [gdprConsent, setGdprConsent] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const navigate = useNavigate();
