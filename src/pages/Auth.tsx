@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Shield, Lock, Eye } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import aigLogo from "@/assets/aig-logo.svg";
 
 const MAX_LOGIN_ATTEMPTS = 5;
