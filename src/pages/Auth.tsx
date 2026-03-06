@@ -341,7 +341,7 @@ export default function Auth() {
                   {fieldErrors.gdpr && (
                     <p className="text-sm text-destructive">{fieldErrors.gdpr}</p>
                   )}
-                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading || !gdprConsent}>
+                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Créer mon compte
                   </Button>
