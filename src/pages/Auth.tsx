@@ -3,7 +3,7 @@
  * Handles login and signup with email/password
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Shield, Lock, Eye } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import aigLogo from "@/assets/aig-logo.svg";
 
 const MAX_LOGIN_ATTEMPTS = 5;
