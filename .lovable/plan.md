@@ -1,21 +1,31 @@
 
 
-## Intégration du widget RGPD au signup
+## Diagnostic : action-runner retourne 401
 
-### Approche
+Le mcp-server appelle action-runner via fetch (ligne 270) avec seulement `Authorization: Bearer <SERVICE_ROLE_KEY>`. Mais la passerelle Edge Functions exige aussi le header **`apikey`** pour router la requête. Sans ce header, elle rejette avec 401.
 
-1. **Ajouter le script externe dans `index.html`** : insérer la balise `<script>` avant la fermeture de `</body>` pour charger le widget sur toutes les pages (il ne s'affichera que selon sa propre config).
+C'est documenté dans la mémoire du projet : *"Toutes les requêtes vers les Edge Functions doivent inclure le header 'apikey'"*.
 
-2. **Aucune modification du formulaire Auth.tsx nécessaire** si le widget fonctionne en overlay/popup autonome. Si par contre il faut conditionner le signup à un consentement explicite (checkbox), on ajoutera une case à cocher "J'accepte la politique de confidentialité" dans le formulaire d'inscription qui bloque le bouton tant qu'elle n'est pas cochée.
+## Correction
 
-### Fichiers modifiés
+### Fichier : `supabase/functions/mcp-server/index.ts`
 
-- **`index.html`** : ajout du script widget RGPD
-- **`src/pages/Auth.tsx`** : ajout d'une checkbox de consentement RGPD dans le formulaire signup (optionnel, recommandé pour conformité)
+Ajouter le header `apikey` dans l'appel fetch vers action-runner (ligne ~272) :
 
-### Détails techniques
+```ts
+// Forward to action-runner
+const runnerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/action-runner`;
+const runnerResp = await fetch(runnerUrl, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,   // <-- ajout
+    "x-mcp-server-call": "true",
+  },
+  body: JSON.stringify({ action_template_id: resolvedTemplateId, input_parameters: toolArgs }),
+});
+```
 
-- Script ajouté : `<script src="https://fa4be116-055d-4827-8894-b21b1fe97aaf.lovableproject.com/widget.js" data-api-key="pk_8a1aaabaac2049eb88fde2c2eb27e93b"></script>`
-- Checkbox liée à un état `gdprConsent` qui désactive le bouton "Créer mon compte" si non coché
-- Validation Zod étendue pour inclure le consentement
+Un seul fichier modifié, une seule ligne ajoutée.
 

@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Shield, Lock, Eye } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import aigLogo from "@/assets/aig-logo.svg";
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -25,6 +26,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [gdprConsent, setGdprConsent] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const navigate = useNavigate();
@@ -89,6 +91,11 @@ export default function Auth() {
     e.preventDefault();
     setFieldErrors({});
 
+    if (!gdprConsent) {
+      setFieldErrors({ gdpr: "Vous devez accepter la politique de confidentialité" });
+      return;
+    }
+
     const result = signUpSchema.safeParse({ email, password, fullName: fullName || undefined });
     if (!result.success) {
       const errors: Record<string, string> = {};
@@ -115,7 +122,7 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
-  }, [email, password, fullName, toast]);
+  }, [email, password, fullName, gdprConsent, toast]);
 
   const passwordStrength = password.length > 0 ? evaluatePasswordStrength(password) : null;
 
@@ -256,7 +263,21 @@ export default function Auth() {
                       </div>
                     )}
                   </div>
-                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading}>
+                  <div className="flex items-start space-x-2 mt-2">
+                    <Checkbox
+                      id="gdpr-consent"
+                      checked={gdprConsent}
+                      onCheckedChange={(checked) => setGdprConsent(checked === true)}
+                      disabled={loading}
+                    />
+                    <Label htmlFor="gdpr-consent" className="text-xs text-muted-foreground leading-tight cursor-pointer">
+                      J'accepte la politique de confidentialité et le traitement de mes données personnelles
+                    </Label>
+                  </div>
+                  {fieldErrors.gdpr && (
+                    <p className="text-sm text-destructive">{fieldErrors.gdpr}</p>
+                  )}
+                  <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading || !gdprConsent}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Créer mon compte
                   </Button>
