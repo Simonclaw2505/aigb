@@ -131,7 +131,6 @@ export default function Auth() {
   useEffect(() => {
     if (activeTab !== "signup" || privyoLoaded.current) return;
 
-    // Small delay to ensure DOM is rendered
     const timer = setTimeout(() => {
       const target = document.getElementById("privyo-consent");
       if (!target) return;
@@ -146,12 +145,30 @@ export default function Auth() {
       script.async = true;
       target.appendChild(script);
 
-      // Observe DOM changes to detect consent
+      // Detect consent via DOM changes — the widget shows "Consentement enregistré" on success
       const observer = new MutationObserver(() => {
-        const checked = target.querySelector("input[type='checkbox']:checked");
-        setGdprConsent(!!checked);
+        const text = target.textContent || "";
+        if (text.includes("enregistré") || text.includes("Consentement enregistré")) {
+          setGdprConsent(true);
+        }
       });
-      observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["checked"] });
+      observer.observe(target, { childList: true, subtree: true, characterData: true });
+
+      // Also listen for clicks inside the widget (fallback)
+      const handleClick = () => {
+        setTimeout(() => {
+          const text = target.textContent || "";
+          if (text.includes("enregistré") || text.includes("Consentement enregistré")) {
+            setGdprConsent(true);
+          }
+        }, 500);
+      };
+      target.addEventListener("click", handleClick);
+
+      return () => {
+        observer.disconnect();
+        target.removeEventListener("click", handleClick);
+      };
     }, 100);
 
     return () => clearTimeout(timer);
