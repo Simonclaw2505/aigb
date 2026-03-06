@@ -122,7 +122,7 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
-  }, [email, password, fullName, toast]);
+  }, [email, password, fullName, gdprConsent, toast]);
 
   const passwordStrength = password.length > 0 ? evaluatePasswordStrength(password) : null;
 
