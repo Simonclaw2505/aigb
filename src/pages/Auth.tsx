@@ -138,8 +138,8 @@ export default function Auth() {
       privyoLoaded.current = true;
 
       const script = document.createElement("script");
-      script.src = "https://fa4be116-055d-4827-8894-b21b1fe97aaf.lovableproject.com/widget.js";
-      script.setAttribute("data-api-key", "pk_8a1aaabaac2049eb88fde2c2eb27e93b");
+      script.src = "https://privyo-consent-guardian.lovable.app/widget.js";
+      script.setAttribute("data-api-key", "pk_d271923744364026b00b518845cd2aea");
       script.setAttribute("data-mode", "inline");
       script.setAttribute("data-target", "#privyo-consent");
       script.async = true;
