@@ -27,7 +27,6 @@ export default function Auth() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [gdprConsent, setGdprConsent] = useState(false);
   const [activeTab, setActiveTab] = useState("signin");
-  const privyoLoaded = useRef(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const navigate = useNavigate();
