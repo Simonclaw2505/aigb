@@ -1,31 +1,19 @@
 
 
-## Diagnostic : action-runner retourne 401
+## Problème
 
-Le mcp-server appelle action-runner via fetch (ligne 270) avec seulement `Authorization: Bearer <SERVICE_ROLE_KEY>`. Mais la passerelle Edge Functions exige aussi le header **`apikey`** pour router la requête. Sans ce header, elle rejette avec 401.
+Le `privyoLoaded.ref` est mis à `true` dès le premier chargement du widget. Quand l'onglet "signup" est réaffiché (navigation React ou même refresh partiel), le `useEffect` fait `if (privyoLoaded.current) return` et **ne recharge jamais le widget**. Résultat : le conteneur `#privyo-consent` est vide, `gdprConsent` reste `false`, le bouton reste bloqué.
 
-C'est documenté dans la mémoire du projet : *"Toutes les requêtes vers les Edge Functions doivent inclure le header 'apikey'"*.
+De plus, `activeTab` démarre à `"signin"` — donc au refresh, l'utilisateur doit d'abord cliquer sur "Créer un compte" pour déclencher le `useEffect`, mais le ref bloque.
 
-## Correction
+## Plan de correction
 
-### Fichier : `supabase/functions/mcp-server/index.ts`
+**Fichier : `src/pages/Auth.tsx`**
 
-Ajouter le header `apikey` dans l'appel fetch vers action-runner (ligne ~272) :
+1. **Supprimer `privyoLoaded` ref** — ne plus empêcher le rechargement du widget
+2. **Vider le conteneur `#privyo-consent`** au début du `useEffect` (avant d'injecter le script) pour éviter les doublons : `target.innerHTML = ""`
+3. **Ajouter un cleanup** dans le `useEffect` qui nettoie le conteneur quand on quitte l'onglet signup
+4. **Garder les fallbacks existants** (onload check, onerror, MutationObserver, timeout 4s)
 
-```ts
-// Forward to action-runner
-const runnerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/action-runner`;
-const runnerResp = await fetch(runnerUrl, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-    "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,   // <-- ajout
-    "x-mcp-server-call": "true",
-  },
-  body: JSON.stringify({ action_template_id: resolvedTemplateId, input_parameters: toolArgs }),
-});
-```
-
-Un seul fichier modifié, une seule ligne ajoutée.
+Cela garantit que chaque fois qu'on arrive sur l'onglet signup (y compris après refresh), le widget est rechargé proprement.
 
