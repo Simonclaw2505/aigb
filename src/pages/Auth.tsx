@@ -26,6 +26,8 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [gdprConsent, setGdprConsent] = useState(false);
+  const [activeTab, setActiveTab] = useState("signin");
+  const privyoLoaded = useRef(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const navigate = useNavigate();
@@ -125,32 +127,35 @@ export default function Auth() {
 
   const passwordStrength = password.length > 0 ? evaluatePasswordStrength(password) : null;
 
-  // Load Privyo widget inline in signup form
+  // Load Privyo widget inline in signup form when tab is active
   useEffect(() => {
-    const target = document.getElementById("privyo-consent");
-    if (!target) return;
+    if (activeTab !== "signup" || privyoLoaded.current) return;
 
-    // Inject script dynamically
-    const script = document.createElement("script");
-    script.src = "https://fa4be116-055d-4827-8894-b21b1fe97aaf.lovableproject.com/widget.js";
-    script.setAttribute("data-api-key", "pk_8a1aaabaac2049eb88fde2c2eb27e93b");
-    script.setAttribute("data-mode", "inline");
-    script.setAttribute("data-target", "#privyo-consent");
-    script.async = true;
-    target.appendChild(script);
+    // Small delay to ensure DOM is rendered
+    const timer = setTimeout(() => {
+      const target = document.getElementById("privyo-consent");
+      if (!target) return;
 
-    // Observe DOM changes to detect consent
-    const observer = new MutationObserver(() => {
-      const checked = target.querySelector("input[type='checkbox']:checked");
-      setGdprConsent(!!checked);
-    });
-    observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["checked"] });
+      privyoLoaded.current = true;
 
-    return () => {
-      observer.disconnect();
-      script.remove();
-    };
-  }, []);
+      const script = document.createElement("script");
+      script.src = "https://fa4be116-055d-4827-8894-b21b1fe97aaf.lovableproject.com/widget.js";
+      script.setAttribute("data-api-key", "pk_8a1aaabaac2049eb88fde2c2eb27e93b");
+      script.setAttribute("data-mode", "inline");
+      script.setAttribute("data-target", "#privyo-consent");
+      script.async = true;
+      target.appendChild(script);
+
+      // Observe DOM changes to detect consent
+      const observer = new MutationObserver(() => {
+        const checked = target.querySelector("input[type='checkbox']:checked");
+        setGdprConsent(!!checked);
+      });
+      observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["checked"] });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [activeTab]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -168,7 +173,7 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-7 pb-7">
-            <Tabs defaultValue="signin" className="w-full" onValueChange={() => setFieldErrors({})}>
+            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setFieldErrors({}); }} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 h-10 rounded-lg">
                 <TabsTrigger value="signin" className="rounded-md text-sm">Se connecter</TabsTrigger>
                 <TabsTrigger value="signup" className="rounded-md text-sm">Créer un compte</TabsTrigger>
