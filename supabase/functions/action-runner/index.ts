@@ -247,27 +247,22 @@ function applyBodyTemplate(template: unknown, inputs: Record<string, unknown>): 
 }
 
 // AES-GCM decryption helper for stored credentials
+// SECURITY: No fallback — refuses to operate without encryption key
 async function decryptValue(encryptedB64: string): Promise<string> {
   const encKeyStr = Deno.env.get("SECRETS_ENCRYPTION_KEY");
   if (!encKeyStr) {
-    console.warn("SECRETS_ENCRYPTION_KEY not set, using value as-is");
-    return encryptedB64;
+    throw new Error("SECRETS_ENCRYPTION_KEY not configured — cannot decrypt credentials");
   }
 
-  try {
-    const keyBytes = new TextEncoder().encode(encKeyStr.slice(0, 32));
-    const cryptoKey = await crypto.subtle.importKey(
-      "raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]
-    );
-    const combined = Uint8Array.from(atob(encryptedB64), (c) => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const ciphertext = combined.slice(12);
-    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, ciphertext);
-    return new TextDecoder().decode(decrypted);
-  } catch (err) {
-    console.warn("Failed to decrypt secret, using as plaintext:", err instanceof Error ? err.message : err);
-    return encryptedB64;
-  }
+  const keyBytes = new TextEncoder().encode(encKeyStr.slice(0, 32));
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw", keyBytes, { name: "AES-GCM" }, false, ["decrypt"]
+  );
+  const combined = Uint8Array.from(atob(encryptedB64), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, ciphertext);
+  return new TextDecoder().decode(decrypted);
 }
 serve(async (req) => {
   // SECURITY: Validate CORS - reject requests from non-allowed origins
