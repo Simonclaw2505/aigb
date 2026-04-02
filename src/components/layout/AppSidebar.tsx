@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   Zap, Bot, Wrench, Download, Play, Shield, TestTube,
   FileText, LogOut, Settings, LayoutDashboard, ShieldCheck,
-  Activity, Plug, KeyRound, HelpCircle,
+  Activity, Plug, KeyRound, HelpCircle, CreditCard,
 } from "lucide-react";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -84,6 +84,12 @@ const supervisionItems = [
     url: "/security",
     icon: ShieldCheck,
     hint: "Score de sécurité de votre plateforme et recommandations d'amélioration.",
+  },
+  {
+    title: "Facturation",
+    url: "/billing",
+    icon: CreditCard,
+    hint: "Gérez votre abonnement, suivez la consommation et consultez vos factures.",
   },
   {
     title: "Paramètres",

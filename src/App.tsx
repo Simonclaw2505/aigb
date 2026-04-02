@@ -26,6 +26,7 @@ import Export from "./pages/Export";
 import Security from "./pages/Security";
 import Settings from "./pages/Settings";
 import RecycleBin from "./pages/RecycleBin";
+import Billing from "./pages/Billing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -132,6 +133,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing"
+              element={
+                <ProtectedRoute>
+                  <Billing />
                 </ProtectedRoute>
               }
             />

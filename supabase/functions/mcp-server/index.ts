@@ -157,7 +157,7 @@ serve(async (req: Request) => {
   // Look up key
   const { data: keyRow, error: keyError } = await supabase
     .from("agent_api_keys")
-    .select("id, project_id, is_active, expires_at, usage_count")
+    .select("id, project_id, organization_id, is_active, expires_at, usage_count")
     .eq("key_hash", keyHash)
     .maybeSingle();
 
@@ -182,6 +182,7 @@ serve(async (req: Request) => {
     .then(() => {});
 
   const projectId: string = keyRow.project_id;
+  const orgId: string = keyRow.organization_id;
 
   // ── Route authenticated methods ────────────────────────────────────────────
 
@@ -221,6 +222,55 @@ serve(async (req: Request) => {
     const toolArgs = params.arguments ?? {};
 
     if (!toolName) return rpcErr(id, -32602, "Missing params.name");
+
+    // ── BILLING CHECK ─────────────────────────────────────────────────────────
+    const { data: billingAccount } = await supabase
+      .from("billing_accounts")
+      .select(`
+        id, status, total_calls_this_period,
+        billing_plans:plan_id (
+          name, price_per_call_microcents, price_per_read_microcents,
+          price_per_write_microcents, included_calls, max_calls_per_month
+        )
+      `)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    if (!billingAccount || billingAccount.status !== "active") {
+      const appUrl = Deno.env.get("APP_URL") || "https://aigb.lovable.app";
+      return jsonResp({
+        jsonrpc: "2.0",
+        id,
+        error: {
+          code: -32000,
+          message: "Payment required — set up billing to use MCP tools",
+          data: {
+            type: "payment_required",
+            payment_url: `${appUrl}/billing`,
+            reason: !billingAccount ? "no_billing_account" : `billing_status_${billingAccount.status}`,
+          },
+        },
+      }, 402);
+    }
+
+    // Check monthly call limit
+    const plan = billingAccount.billing_plans as Record<string, unknown> | null;
+    if (plan?.max_calls_per_month && billingAccount.total_calls_this_period >= (plan.max_calls_per_month as number)) {
+      return jsonResp({
+        jsonrpc: "2.0",
+        id,
+        error: {
+          code: -32000,
+          message: "Monthly call limit reached — upgrade your plan",
+          data: {
+            type: "limit_reached",
+            payment_url: `${Deno.env.get("APP_URL") || "https://aigb.lovable.app"}/billing`,
+            current_calls: billingAccount.total_calls_this_period,
+            max_calls: plan.max_calls_per_month,
+          },
+        },
+      }, 402);
+    }
 
     // ── Argument size guard ────────────────────────────────────────────────
     const argsJson = JSON.stringify(toolArgs);
@@ -273,6 +323,8 @@ serve(async (req: Request) => {
       "apikey": Deno.env.get("SUPABASE_ANON_KEY")!,
       "X-API-Key": rawKey,
       "x-mcp-server-call": "true",
+      "x-billing-account-id": billingAccount.id,
+      "x-billing-plan": JSON.stringify(plan || {}),
     };
     // Forward operator key if present
     const incomingOperatorKey = req.headers.get("x-operator-key");

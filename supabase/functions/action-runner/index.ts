@@ -783,6 +783,69 @@ serve(async (req) => {
       })
       .eq("id", executionId);
 
+    // ── BILLING: Log usage ────────────────────────────────────────────────────
+    const billingAccountId = req.headers.get("x-billing-account-id");
+    const billingPlanRaw = req.headers.get("x-billing-plan");
+
+    if (billingAccountId && billingPlanRaw) {
+      try {
+        const billingPlan = JSON.parse(billingPlanRaw);
+        const execMethod = endpoint?.method || action.endpoint_method || "GET";
+        const isReadMethod = ["GET", "HEAD", "OPTIONS"].includes(execMethod);
+
+        // Determine cost based on plan and method type
+        const costMicrocents = isReadMethod
+          ? (billingPlan.price_per_read_microcents ?? billingPlan.price_per_call_microcents ?? 0)
+          : (billingPlan.price_per_write_microcents ?? billingPlan.price_per_call_microcents ?? 0);
+
+        // Check if within included calls (free tier)
+        // We still log the usage but cost=0 if within included
+        const { data: currentAccount } = await supabase
+          .from("billing_accounts")
+          .select("total_calls_this_period")
+          .eq("id", billingAccountId)
+          .single();
+
+        const totalCalls = currentAccount?.total_calls_this_period ?? 0;
+        const includedCalls = billingPlan.included_calls ?? 0;
+        const effectiveCost = totalCalls < includedCalls ? 0 : costMicrocents;
+
+        // Insert usage record
+        await supabase.from("usage_records").insert({
+          organization_id: project.organization_id,
+          project_id: project.id,
+          execution_run_id: executionId,
+          action_template_id,
+          api_key_id: authenticatedViaApiKey ? (await supabase
+            .from("agent_api_keys")
+            .select("id")
+            .eq("project_id", project.id)
+            .eq("is_active", true)
+            .limit(1)
+            .single()).data?.id : null,
+          tool_name: action.name,
+          method: execMethod,
+          cost_microcents: effectiveCost,
+          reported_to_stripe: false,
+        });
+
+        // Update cost on execution_runs for denormalization
+        await supabase
+          .from("execution_runs")
+          .update({ cost_microcents: effectiveCost })
+          .eq("id", executionId);
+
+        // Increment billing account counters (fire-and-forget)
+        await supabase.rpc("increment_billing_usage", {
+          p_billing_account_id: billingAccountId,
+          p_cost_microcents: effectiveCost,
+        });
+      } catch (billingErr) {
+        // Billing logging failure should not block the response
+        console.error("Billing usage logging error:", billingErr);
+      }
+    }
+
     // Log the execution
     await supabase.from("audit_logs").insert({
       user_id: user!.id,
@@ -795,6 +858,7 @@ serve(async (req) => {
         connector_id: connector?.id,
         retries: retriesUsed,
         duration_ms: Date.now() - startTime,
+        cost_microcents: billingAccountId ? undefined : 0,
       },
     });
 
