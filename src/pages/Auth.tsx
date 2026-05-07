@@ -29,6 +29,8 @@ export default function Auth() {
   const [activeTab, setActiveTab] = useState("signin");
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -86,6 +88,35 @@ export default function Auth() {
       setLoading(false);
     }
   }, [email, password, loginAttempts, lockedUntil, isLockedOut, navigate, toast]);
+
+  const handleForgotPassword = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFieldErrors({});
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      setFieldErrors({ email: "Adresse e-mail invalide" });
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({
+        title: "E-mail envoyé",
+        description: "Si un compte existe pour cette adresse, vous recevrez un lien de réinitialisation.",
+      });
+      setForgotMode(false);
+    } catch {
+      toast({
+        title: "E-mail envoyé",
+        description: "Si un compte existe pour cette adresse, vous recevrez un lien de réinitialisation.",
+      });
+      setForgotMode(false);
+    } finally {
+      setForgotLoading(false);
+    }
+  }, [email, toast]);
 
   const handleSignUp = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
