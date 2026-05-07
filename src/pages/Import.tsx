@@ -358,26 +358,52 @@ export default function Import() {
         </div>
 
         {/* Manual mode */}
-        {importMode === "manual" && (
+        {importMode === "manual" && librarySlug === "slack" && !slackDiscovery && (
+          <SlackDiscovery onConfirm={setSlackDiscovery} />
+        )}
+
+        {importMode === "manual" && (librarySlug !== "slack" || slackDiscovery) && (
           <ManualApiConfig
             projectId={currentProject?.id || ""}
             organizationId={organization?.id || ""}
-            initialData={libraryData ? {
-              name: libraryData.name,
-              baseUrl: libraryData.base_url,
-              description: libraryData.description || "",
-              authType: libraryData.auth_type,
-              authHeaderName: libraryData.auth_header_name || "Authorization",
-              extraHeaders: libraryData.extra_headers && Object.keys(libraryData.extra_headers).length > 0
-                ? JSON.stringify(libraryData.extra_headers, null, 2) : "",
-              endpoints: (libraryData.endpoints || []).map((ep: any) => ({
-                id: crypto.randomUUID(),
-                method: ep.method,
-                path: ep.path,
-                name: ep.name || `${ep.method} ${ep.path}`,
-                description: ep.description || "",
-              })),
-            } : undefined}
+            initialData={
+              slackDiscovery
+                ? {
+                    name: "Slack",
+                    baseUrl: "https://slack.com/api",
+                    description: `Slack workspace: ${slackDiscovery.team || ""}`,
+                    authType: "bearer",
+                    authHeaderName: "Authorization",
+                    extraHeaders: "",
+                    endpoints: slackDiscovery.endpoints.map((ep) => ({
+                      id: crypto.randomUUID(),
+                      method: ep.method,
+                      path: ep.path,
+                      name: ep.name,
+                      description: ep.description,
+                    })),
+                  }
+                : libraryData
+                ? {
+                    name: libraryData.name,
+                    baseUrl: libraryData.base_url,
+                    description: libraryData.description || "",
+                    authType: libraryData.auth_type,
+                    authHeaderName: libraryData.auth_header_name || "Authorization",
+                    extraHeaders:
+                      libraryData.extra_headers && Object.keys(libraryData.extra_headers).length > 0
+                        ? JSON.stringify(libraryData.extra_headers, null, 2)
+                        : "",
+                    endpoints: (libraryData.endpoints || []).map((ep: any) => ({
+                      id: crypto.randomUUID(),
+                      method: ep.method,
+                      path: ep.path,
+                      name: ep.name || `${ep.method} ${ep.path}`,
+                      description: ep.description || "",
+                    })),
+                  }
+                : undefined
+            }
             onSuccess={() => {
               fetchApiSources();
             }}
