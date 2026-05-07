@@ -31,12 +31,6 @@ const cockpitItems = [
     icon: LayoutDashboard,
     hint: "Votre tableau de bord principal — statut du système, checklist de démarrage et activité récente.",
   },
-  {
-    title: "Activité récente",
-    url: "/audit-logs",
-    icon: Activity,
-    hint: "Historique complet de toutes les actions effectuées par vos agents IA.",
-  },
 ];
 
 const configItems = [
@@ -79,6 +73,12 @@ const configItems = [
 ];
 
 const supervisionItems = [
+  {
+    title: "Activité récente",
+    url: "/audit-logs",
+    icon: Activity,
+    hint: "Historique complet de toutes les actions effectuées par vos agents IA.",
+  },
   {
     title: "Audit sécurité",
     url: "/security",
