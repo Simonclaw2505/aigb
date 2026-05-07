@@ -241,16 +241,6 @@ export default function Dashboard() {
                 ))}
               </CardContent>
             </Card>
-          </div>
-
-          {/* ── Supervision ──────────────────────────── */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Supervision
-              </h3>
-              <div className="flex-1 h-px bg-border/60" />
-            </div>
 
             {/* CTA — Tester */}
             <Link
@@ -302,6 +292,16 @@ export default function Dashboard() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
               </div>
             </Link>
+          </div>
+
+          {/* ── Supervision ──────────────────────────── */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Supervision
+              </h3>
+              <div className="flex-1 h-px bg-border/60" />
+            </div>
 
             {/* Activité récente */}
             <Card className="border-border/50">

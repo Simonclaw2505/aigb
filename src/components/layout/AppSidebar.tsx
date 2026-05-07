@@ -64,9 +64,6 @@ const configItems = [
     icon: Shield,
     hint: "Contrôlez finement ce que chaque agent peut faire : autoriser, bloquer ou demander approbation.",
   },
-];
-
-const supervisionItems = [
   {
     title: "Tester mon agent",
     url: "/simulator",
@@ -79,6 +76,9 @@ const supervisionItems = [
     icon: Download,
     hint: "Récupérez l'endpoint MCP pour connecter Claude, GPT ou tout autre agent IA.",
   },
+];
+
+const supervisionItems = [
   {
     title: "Audit sécurité",
     url: "/security",
