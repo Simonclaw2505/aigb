@@ -807,9 +807,15 @@ export default function Simulator() {
                               </Badge>
                             )}
                             {result.permission_check.requires_approval && (
-                              <Badge variant={getApprovalForStep(result.step_number)?.status === "approved" ? "default" : "outline"} className="text-xs gap-1">
-                                <Clock className="h-3 w-3" />
-                                {getApprovalForStep(result.step_number)?.status === "approved" ? "Approved" : "Needs Approval"}
+                              <Badge
+                                variant={getApprovalForStep(result.step_number)?.status === "approved" ? "default" : "destructive"}
+                                className="text-xs gap-1"
+                              >
+                                {getApprovalForStep(result.step_number)?.status === "approved" ? (
+                                  <><CheckCircle className="h-3 w-3" /> Approuvée</>
+                                ) : (
+                                  <><Lock className="h-3 w-3" /> En attente d'approbation</>
+                                )}
                               </Badge>
                             )}
                           </div>
