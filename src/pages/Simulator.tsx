@@ -352,14 +352,20 @@ export default function Simulator() {
     );
   };
 
-  const handleApproveStep = async (stepNumber: number) => {
+  const handleApproveStep = async (
+    stepNumber: number,
+    operator: { operator_id: string; operator_name: string; role: string }
+  ) => {
     if (!user) return;
-    await approveRequest(stepNumber, user.id);
+    await approveRequest(stepNumber, user.id, operator);
   };
 
-  const handleRejectStep = async (stepNumber: number) => {
+  const handleRejectStep = async (
+    stepNumber: number,
+    operator: { operator_id: string; operator_name: string; role: string }
+  ) => {
     if (!user) return;
-    await rejectRequest(stepNumber, user.id);
+    await rejectRequest(stepNumber, user.id, undefined, operator);
   };
 
   const handleExecute = async () => {
