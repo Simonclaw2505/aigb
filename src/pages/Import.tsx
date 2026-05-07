@@ -65,6 +65,7 @@ export default function Import() {
   const librarySlug = searchParams.get("library");
   const [importMode, setImportMode] = useSessionState<"manual" | "openapi">("import_mode", "manual");
   const [libraryData, setLibraryData] = useState<any>(null);
+  const [slackDiscovery, setSlackDiscovery] = useState<SlackDiscoveryResult | null>(null);
   const [specUrl, setSpecUrl] = useSessionState("import_spec_url", "");
   const [specJson, setSpecJson] = useSessionState("import_spec_json", "");
   const [activeTab, setActiveTab] = useSessionState("import_active_tab", "upload");
