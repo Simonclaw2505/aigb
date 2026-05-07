@@ -237,20 +237,20 @@ serve(async (req) => {
           allowed = false;
           denialReason = "En attente d'approbation humaine — exécution bloquée";
         }
+      }
 
-        // Check rate limits
-        if (allowed && capability.max_executions_per_hour) {
-          const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-          const { count } = await supabase
-            .from("execution_runs")
-            .select("*", { count: "exact", head: true })
-            .eq("action_template_id", step.action_template_id)
-            .gte("created_at", hourAgo);
+      // Check rate limits
+      if (allowed && capability?.max_executions_per_hour) {
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { count } = await supabase
+          .from("execution_runs")
+          .select("*", { count: "exact", head: true })
+          .eq("action_template_id", step.action_template_id)
+          .gte("created_at", hourAgo);
 
-          if ((count || 0) >= capability.max_executions_per_hour) {
-            allowed = false;
-            denialReason = `Rate limit exceeded: ${capability.max_executions_per_hour}/hour`;
-          }
+        if ((count || 0) >= capability.max_executions_per_hour) {
+          allowed = false;
+          denialReason = `Rate limit exceeded: ${capability.max_executions_per_hour}/hour`;
         }
       }
 
