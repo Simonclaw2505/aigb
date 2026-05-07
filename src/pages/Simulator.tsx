@@ -30,6 +30,8 @@ import {
   Ban,
   FileJson,
   UserCheck,
+  Lock,
+  ShieldAlert,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
