@@ -50,13 +50,15 @@ export function ApprovalRequestPanel({
   actionName,
   description,
   approvalRequest,
-  isAdmin,
+  agentId,
   onRequestApproval,
   onApprove,
   onReject,
   isLoading = false,
+  allowedRoles = ["owner", "admin"],
 }: ApprovalRequestPanelProps) {
   const [localLoading, setLocalLoading] = useState<"request" | "approve" | "reject" | null>(null);
+  const [dialogMode, setDialogMode] = useState<"approve" | "reject" | null>(null);
 
   const handleRequestApproval = async () => {
     setLocalLoading("request");
@@ -67,21 +69,18 @@ export function ApprovalRequestPanel({
     }
   };
 
-  const handleApprove = async () => {
-    setLocalLoading("approve");
+  const handleDialogConfirm = async (op: OperatorInfo) => {
+    if (!dialogMode) return;
+    setLocalLoading(dialogMode);
     try {
-      await onApprove();
+      if (dialogMode === "approve") {
+        await onApprove(op);
+      } else {
+        await onReject(op);
+      }
     } finally {
       setLocalLoading(null);
-    }
-  };
-
-  const handleReject = async () => {
-    setLocalLoading("reject");
-    try {
-      await onReject();
-    } finally {
-      setLocalLoading(null);
+      setDialogMode(null);
     }
   };
 
