@@ -29,6 +29,7 @@ import {
 import { EndpointsPreview } from "@/components/import/EndpointsPreview";
 import { ImportErrors } from "@/components/import/ImportErrors";
 import { ManualApiConfig } from "@/components/import/ManualApiConfig";
+import { SlackDiscovery, type SlackDiscoveryResult } from "@/components/import/SlackDiscovery";
 import { ProjectSetup } from "@/components/onboarding/ProjectSetup";
 import { ProjectBanner } from "@/components/layout/ProjectBanner";
 import { useApiImport } from "@/hooks/useApiImport";
