@@ -259,6 +259,41 @@ export default function Auth() {
               </TabsList>
 
               <TabsContent value="signin">
+                {forgotMode ? (
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email" className="text-xs font-medium">Adresse e-mail</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="vous@entreprise.fr"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        disabled={forgotLoading}
+                        autoComplete="email"
+                        className="h-11 rounded-lg"
+                      />
+                      {fieldErrors.email && (
+                        <p className="text-sm text-destructive">{fieldErrors.email}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                      </p>
+                    </div>
+                    <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={forgotLoading}>
+                      {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Envoyer le lien
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => { setForgotMode(false); setFieldErrors({}); }}
+                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Retour à la connexion
+                    </button>
+                  </form>
+                ) : (
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email" className="text-xs font-medium">Adresse e-mail</Label>
@@ -278,7 +313,16 @@ export default function Auth() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password" className="text-xs font-medium">Mot de passe</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="signin-password" className="text-xs font-medium">Mot de passe</Label>
+                      <button
+                        type="button"
+                        onClick={() => { setForgotMode(true); setFieldErrors({}); }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Mot de passe oublié ?
+                      </button>
+                    </div>
                     <Input
                       id="signin-password"
                       type="password"
@@ -298,6 +342,8 @@ export default function Auth() {
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isLockedOut ? "Verrouillé temporairement" : "Se connecter"}
                   </Button>
+                </form>
+                )}
                 </form>
               </TabsContent>
 
