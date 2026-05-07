@@ -74,6 +74,12 @@ const configItems = [
 
 const supervisionItems = [
   {
+    title: "Activité récente",
+    url: "/audit-logs",
+    icon: Activity,
+    hint: "Historique complet de toutes les actions effectuées par vos agents IA.",
+  },
+  {
     title: "Audit sécurité",
     url: "/security",
     icon: ShieldCheck,
