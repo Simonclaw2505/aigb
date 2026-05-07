@@ -747,11 +747,24 @@ serve(async (req) => {
       const requestOptions: RequestInit = {
         method,
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json; charset=utf-8",
           ...connector.default_headers as Record<string, string>,
           ...authHeaders,
         },
       };
+
+      // ── Slack-specific normalization (runs BEFORE body building) ──
+      if (isSlackUrl(connector.base_url, endpoint?.path || action.endpoint_path || "")) {
+        const normalized = normalizeSlackInputs(endpoint?.path || action.endpoint_path || "", modifiedInputs);
+        // Resolve channel name → Slack channel id when possible
+        if (typeof normalized.channel === "string" && !/^[CGD][A-Z0-9]{6,}$/.test(normalized.channel)) {
+          const resolved = await resolveSlackChannelId(normalized.channel, authHeaders);
+          if (resolved) normalized.channel = resolved;
+        }
+        // Replace contents of modifiedInputs in place
+        for (const k of Object.keys(modifiedInputs)) delete (modifiedInputs as Record<string, unknown>)[k];
+        Object.assign(modifiedInputs, normalized);
+      }
 
       if (!isReadOnly && Object.keys(modifiedInputs).length > 0) {
         // Apply body_template transformation if defined in constraints
