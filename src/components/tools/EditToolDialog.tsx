@@ -68,17 +68,56 @@ export function EditToolDialog({ open, onOpenChange, toolId, onChanged }: EditTo
   const [newDesc, setNewDesc] = useState("");
   const [adding, setAdding] = useState(false);
 
+  // Connector / token state
+  const [connectorId, setConnectorId] = useState<string | null>(null);
+  const [hasCredential, setHasCredential] = useState(false);
+  const [authType, setAuthType] = useState<string>("bearer");
+  const [authHeaderName, setAuthHeaderName] = useState("Authorization");
+  const [authPrefix, setAuthPrefix] = useState("Bearer");
+  const [tokenValue, setTokenValue] = useState("");
+  const [savingToken, setSavingToken] = useState(false);
+  const [projectCtx, setProjectCtx] = useState<{ id: string; org: string } | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data: src } = await supabase
         .from("api_sources")
-        .select("name, description")
+        .select("name, description, project_id")
         .eq("id", toolId)
         .single();
       if (src) {
         setName(src.name);
         setDescription(src.description || "");
+        if (src.project_id) {
+          const { data: proj } = await supabase
+            .from("projects")
+            .select("organization_id")
+            .eq("id", src.project_id)
+            .single();
+          if (proj) setProjectCtx({ id: src.project_id, org: proj.organization_id });
+
+          const { data: conn } = await supabase
+            .from("api_connectors")
+            .select("id, auth_type, auth_config, credential_secret_id, base_url")
+            .eq("api_source_id", toolId)
+            .eq("project_id", src.project_id)
+            .maybeSingle();
+          if (conn) {
+            setConnectorId(conn.id);
+            setAuthType(conn.auth_type || "bearer");
+            const cfg = (conn.auth_config as Record<string, string>) || {};
+            setAuthHeaderName(cfg.header_name || "Authorization");
+            setAuthPrefix(cfg.prefix ?? "Bearer");
+            setHasCredential(!!conn.credential_secret_id);
+            setBaseUrl(conn.base_url || "");
+          } else {
+            setConnectorId(null);
+            setHasCredential(false);
+            setBaseUrl("");
+          }
+        }
       }
       const { data: eps } = await supabase
         .from("endpoints")
