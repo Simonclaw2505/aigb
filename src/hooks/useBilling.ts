@@ -7,6 +7,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+const billingDb = supabase as any;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -84,7 +86,7 @@ export function useBillingAccount(organizationId: string | null) {
 
     try {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await billingDb
         .from("billing_accounts")
         .select(`
           *,
@@ -122,7 +124,7 @@ export function useBillingPlans() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await billingDb
           .from("billing_plans")
           .select("*")
           .eq("is_active", true)
@@ -163,7 +165,7 @@ export function useUsageRecords(organizationId: string | null, days = 30) {
         const since = new Date();
         since.setDate(since.getDate() - days);
 
-        const { data, error } = await supabase
+        const { data, error } = await billingDb
           .from("usage_records")
           .select("id, project_id, tool_name, method, cost_microcents, created_at")
           .eq("organization_id", organizationId)
@@ -219,7 +221,7 @@ export function useInvoices(organizationId: string | null) {
       }
 
       try {
-        const { data, error } = await supabase
+        const { data, error } = await billingDb
           .from("billing_invoices")
           .select("*")
           .eq("organization_id", organizationId)
