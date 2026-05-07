@@ -1,47 +1,52 @@
-## Problème constaté
-- Quand le plan affiche « Approval Required », cliquer « Execute Plan » exécute quand même l'action.
-- L'alerte d'approbation est trop discrète et passe inaperçue.
+## Objectif
 
-## Cause racine
-Dans `supabase/functions/execute-plan/index.ts`, le flag `requiresApproval` n'est positionné **que** si une `agent_capability` existe avec `policy = "require_approval"`. Or `generate-plan` lève le flag aussi quand `action.requires_approval = true` au niveau du template (sans capability). Résultat : côté exécution, aucun `capability` → `requiresApproval = false` → pas de blocage → l'action part directement, même si le plan a affiché « Approval Required ».
+Quand une action nécessite une approbation humaine, l'utilisateur qui clique sur **Approve** ou **Reject** doit **prouver son identité** en saisissant sa clé opérateur (`aig_op_…`). Sans clé valide avec un rôle autorisé (`owner`/`admin`), l'approbation est refusée — même si la session web appartient à un admin.
 
-Côté UI, `getStepsNeedingApproval()` repose sur `result.permission_check.requires_approval`, qui vient d'execute-plan. Comme ce dernier ne le marque pas, `canExecuteNow()` renvoie `true` et le bouton « Execute » est actif.
+Aujourd'hui, le bouton "Approve" est visible dès que `userRole` (rôle org de la session) est admin, et l'enregistrement se fait sans aucune vérification de clé. Ça ne reflète pas le modèle de gouvernance par opérateur.
 
-## Plan de correction
+## Changements
 
-### 1. Backend : bloquer réellement les actions à approbation
-Fichier : `supabase/functions/execute-plan/index.ts`
-- Considérer une action comme nécessitant approbation si **l'une** des conditions est vraie :
-  - `capability.policy === "require_approval"`
-  - `action.requires_approval === true` (flag du template)
-  - `action.risk_level === "irreversible"` (sécurité par défaut)
-- En mode `execute`, si `requiresApproval` est vrai et que `approved_steps` ne contient pas le step (et pas d'`approval_id` legacy), refuser : `allowed = false`, `denial_reason = "En attente d'approbation humaine"`.
-- En mode `dry_run`, renvoyer `status: "pending_approval"` et `permission_check.requires_approval = true` pour que l'UI le reflète.
+### 1. Nouveau dialog : `ApproveWithOperatorKeyDialog`
+Fichier : `src/components/simulator/ApproveWithOperatorKeyDialog.tsx`
 
-### 2. Frontend : rendre l'approbation requise très visible
-Fichier : `src/pages/Simulator.tsx`
-- Transformer l'alerte « Approval Required » en bandeau **destructive** en haut du plan (icône Shield + couleur warning forte, fond contrasté, titre gras « Approbation humaine requise »).
-- Ajouter un badge rouge/orange « Pending approval » sur chaque step concerné dans la liste.
-- Remplacer le bouton « Execute Plan » désactivé par un bouton clairement barré : « Bloqué — approbation requise » avec icône Lock.
-- Ajouter un compteur visible : « 1 étape en attente d'approbation (0/1 approuvée) ».
-- Faire défiler/scroller automatiquement vers le panneau d'approbation au moment du dry-run si `requires_approval`.
+- S'inspire de `ConfirmActionDialog` (champ clé + bouton "Vérifier", appel à `verify-operator-key`).
+- Deux modes : `approve` ou `reject`. Affiche le contexte de l'étape (nom action, description, impact).
+- Ne valide la clé que si `role ∈ ["owner", "admin"]` (ou rôles fournis par la policy). Sinon erreur : « Cette clé n'a pas le rôle requis pour approuver ».
+- Sur succès, retourne `{ operator_id, operator_name, role }` au parent.
 
-### 3. Composant `ApprovalRequestPanel`
-Fichier : `src/components/simulator/ApprovalRequestPanel.tsx`
-- Renforcer la bordure et le fond (warning/destructive selon état) pour qu'on ne le rate pas.
-- Ajouter une icône Shield large + titre « Action bloquée tant que non approuvée ».
+### 2. Brancher le dialog dans `ApprovalRequestPanel.tsx`
 
-### 4. Vérification
-- Sur une action marquée `requires_approval` au niveau template :
-  - Le dry-run doit afficher le step en `pending_approval`.
-  - Le bouton « Execute Plan » doit être désactivé.
-  - Forcer un appel direct à `execute-plan` sans `approved_steps` doit retourner un step `failed` avec `denial_reason` clair, **sans** appeler l'API tierce (Slack).
-- Après « Approve », l'exécution doit passer normalement.
+- Ajouter prop `agentId: string` (= `selectedProjectId`).
+- Les boutons "Approve" / "Reject" n'appellent plus directement `onApprove/onReject` mais ouvrent le dialog avec le mode correspondant.
+- Quand le dialog confirme, on appelle `onApprove(operatorInfo)` / `onReject(operatorInfo)` (signatures étendues).
 
-## Détails techniques
-- Fichiers modifiés :
-  - `supabase/functions/execute-plan/index.ts` (logique d'évaluation)
-  - `src/pages/Simulator.tsx` (UI bandeau, bouton, badges)
-  - `src/components/simulator/ApprovalRequestPanel.tsx` (renforcement visuel)
-- Aucune migration BDD nécessaire.
-- Déploiement : redeploy de l'edge function `execute-plan`.
+### 3. `useApprovalRequests.ts` — tracer l'opérateur
+
+- `approveRequest(stepNumber, userId, operatorInfo?)` : ajouter `operator_id`, `operator_name`, `role` dans l'objet `newApproval` poussé dans `approval_requests.approvals`.
+- Idem pour `rejectRequest` dans `rejections`.
+- Le rôle org de l'utilisateur connecté n'est plus suffisant : on stocke la clé opérateur ayant validé, pour audit.
+
+### 4. `Simulator.tsx`
+
+- Passer `agentId={selectedProjectId}` à `<ApprovalRequestPanel/>`.
+- Adapter `handleApproveStep` / `handleRejectStep` pour transmettre l'`operatorInfo` reçu.
+- Retirer la condition `isAdmin` qui masquait les boutons (n'importe quel membre peut **tenter** d'approuver, c'est la clé opérateur qui décide). Garder un message si aucun admin n'est connecté pour rappeler qu'il faut une clé `admin`/`owner`.
+
+### 5. Mettre l'exigence en évidence (UX)
+
+Dans le panneau "Approbation requise" :
+- Sous-titre : « L'approbateur doit fournir sa clé opérateur (`aig_op_…`) avec rôle Admin/Owner. »
+- Icône `KeyRound` à côté des boutons Approve/Reject.
+
+## Fichiers modifiés
+
+- `src/components/simulator/ApproveWithOperatorKeyDialog.tsx` (nouveau)
+- `src/components/simulator/ApprovalRequestPanel.tsx`
+- `src/hooks/useApprovalRequests.ts`
+- `src/pages/Simulator.tsx`
+
+Pas de migration DB : la colonne `approval_requests.approvals` est déjà `jsonb`.
+
+## Hors scope (à confirmer si tu veux l'ajouter)
+
+- Vérification côté backend que l'`operator_id` stocké correspond bien à un rôle approbateur au moment de `execute-plan` (défense en profondeur). Actuellement, `execute-plan` se base seulement sur le statut `approved` de la ligne.

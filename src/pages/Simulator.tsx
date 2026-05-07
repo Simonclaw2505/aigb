@@ -352,14 +352,20 @@ export default function Simulator() {
     );
   };
 
-  const handleApproveStep = async (stepNumber: number) => {
+  const handleApproveStep = async (
+    stepNumber: number,
+    operator: { operator_id: string; operator_name: string; role: string }
+  ) => {
     if (!user) return;
-    await approveRequest(stepNumber, user.id);
+    await approveRequest(stepNumber, user.id, operator);
   };
 
-  const handleRejectStep = async (stepNumber: number) => {
+  const handleRejectStep = async (
+    stepNumber: number,
+    operator: { operator_id: string; operator_name: string; role: string }
+  ) => {
     if (!user) return;
-    await rejectRequest(stepNumber, user.id);
+    await rejectRequest(stepNumber, user.id, undefined, operator);
   };
 
   const handleExecute = async () => {
@@ -482,10 +488,10 @@ export default function Simulator() {
             actionName={step.action_name}
             description={step.description}
             approvalRequest={getApprovalForStep(step.step_number)}
-            isAdmin={isAdmin}
+            agentId={selectedProjectId}
             onRequestApproval={() => handleRequestApproval(step)}
-            onApprove={() => handleApproveStep(step.step_number)}
-            onReject={() => handleRejectStep(step.step_number)}
+            onApprove={(op) => handleApproveStep(step.step_number, op)}
+            onReject={(op) => handleRejectStep(step.step_number, op)}
             isLoading={approvalsLoading}
           />
         )}

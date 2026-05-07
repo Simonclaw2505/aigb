@@ -14,9 +14,14 @@ import {
   Loader2,
   ShieldCheck,
   Send,
+  KeyRound,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import {
+  ApproveWithOperatorKeyDialog,
+  type OperatorInfo,
+} from "./ApproveWithOperatorKeyDialog";
 
 interface ApprovalRequest {
   id: string;
@@ -32,11 +37,12 @@ interface ApprovalRequestPanelProps {
   actionName: string;
   description: string;
   approvalRequest: ApprovalRequest | null;
-  isAdmin: boolean;
+  agentId: string;
   onRequestApproval: () => Promise<void>;
-  onApprove: () => Promise<void>;
-  onReject: () => Promise<void>;
+  onApprove: (operator: OperatorInfo) => Promise<void>;
+  onReject: (operator: OperatorInfo) => Promise<void>;
   isLoading?: boolean;
+  allowedRoles?: string[];
 }
 
 export function ApprovalRequestPanel({
@@ -44,13 +50,15 @@ export function ApprovalRequestPanel({
   actionName,
   description,
   approvalRequest,
-  isAdmin,
+  agentId,
   onRequestApproval,
   onApprove,
   onReject,
   isLoading = false,
+  allowedRoles = ["owner", "admin"],
 }: ApprovalRequestPanelProps) {
   const [localLoading, setLocalLoading] = useState<"request" | "approve" | "reject" | null>(null);
+  const [dialogMode, setDialogMode] = useState<"approve" | "reject" | null>(null);
 
   const handleRequestApproval = async () => {
     setLocalLoading("request");
@@ -61,21 +69,18 @@ export function ApprovalRequestPanel({
     }
   };
 
-  const handleApprove = async () => {
-    setLocalLoading("approve");
+  const handleDialogConfirm = async (op: OperatorInfo) => {
+    if (!dialogMode) return;
+    setLocalLoading(dialogMode);
     try {
-      await onApprove();
+      if (dialogMode === "approve") {
+        await onApprove(op);
+      } else {
+        await onReject(op);
+      }
     } finally {
       setLocalLoading(null);
-    }
-  };
-
-  const handleReject = async () => {
-    setLocalLoading("reject");
-    try {
-      await onReject();
-    } finally {
-      setLocalLoading(null);
+      setDialogMode(null);
     }
   };
 
@@ -178,54 +183,51 @@ export function ApprovalRequestPanel({
             })}
           </div>
 
-          {isAdmin && (
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={handleReject}
-                disabled={isLoading || localLoading !== null}
-                className="flex-1"
-              >
-                {localLoading === "reject" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Rejecting...
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Reject
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleApprove}
-                disabled={isLoading || localLoading !== null}
-                className="flex-1"
-              >
-                {localLoading === "approve" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Approving...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
+          <Alert>
+            <KeyRound className="h-4 w-4" />
+            <AlertDescription>
+              L'approbateur doit fournir sa <strong>clé opérateur</strong> (<code>aig_op_…</code>)
+              avec un rôle <strong>{allowedRoles.join(" / ")}</strong>.
+            </AlertDescription>
+          </Alert>
 
-          {!isAdmin && (
-            <Alert>
-              <Clock className="h-4 w-4" />
-              <AlertDescription>
-                Waiting for an administrator to review this request.
-              </AlertDescription>
-            </Alert>
-          )}
+          <div className="flex gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setDialogMode("reject")}
+              disabled={isLoading || localLoading !== null}
+              className="flex-1"
+            >
+              {localLoading === "reject" ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Refus...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Refuser
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => setDialogMode("approve")}
+              disabled={isLoading || localLoading !== null}
+              className="flex-1"
+            >
+              {localLoading === "approve" ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Approbation...
+                </>
+              ) : (
+                <>
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  Approuver avec clé
+                </>
+              )}
+            </Button>
+          </div>
         </>
       )}
 
@@ -233,7 +235,7 @@ export function ApprovalRequestPanel({
         <Alert className="bg-primary/10 border-primary/30">
           <CheckCircle className="h-4 w-4 text-primary" />
           <AlertDescription className="text-primary">
-            This action has been approved. You can now proceed with execution.
+            Action approuvée. Vous pouvez maintenant l'exécuter.
           </AlertDescription>
         </Alert>
       )}
@@ -242,10 +244,22 @@ export function ApprovalRequestPanel({
         <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
           <AlertDescription>
-            This action has been rejected by an administrator.
+            Action refusée par un administrateur.
           </AlertDescription>
         </Alert>
       )}
+
+      <ApproveWithOperatorKeyDialog
+        open={dialogMode !== null}
+        onOpenChange={(o) => !o && setDialogMode(null)}
+        mode={dialogMode ?? "approve"}
+        agentId={agentId}
+        stepNumber={stepNumber}
+        actionName={actionName}
+        description={description}
+        allowedRoles={allowedRoles}
+        onConfirm={handleDialogConfirm}
+      />
     </div>
   );
 }

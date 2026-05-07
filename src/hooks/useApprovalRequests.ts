@@ -139,7 +139,8 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
   // Approve a request
   const approveRequest = useCallback(async (
     stepNumber: number,
-    userId: string
+    userId: string,
+    operator?: { operator_id: string; operator_name: string; role: string }
   ): Promise<boolean> => {
     const request = approvalRequests.get(`${stepNumber}`);
     if (!request) return false;
@@ -150,6 +151,13 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
       const newApproval = {
         user_id: userId,
         approved_at: new Date().toISOString(),
+        ...(operator
+          ? {
+              operator_id: operator.operator_id,
+              operator_name: operator.operator_name,
+              operator_role: operator.role,
+            }
+          : {}),
       };
 
       const { error } = await supabase
@@ -163,7 +171,6 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
 
       if (error) throw error;
 
-      // Update local state
       setApprovalRequests((prev) => {
         const next = new Map(prev);
         const updated = { ...request, status: "approved" as const, approvals: [...request.approvals, newApproval] };
@@ -172,16 +179,18 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
       });
 
       toast({
-        title: "Approved",
-        description: "Action has been approved for execution",
+        title: "Approuvé",
+        description: operator
+          ? `Validé par ${operator.operator_name} (${operator.role})`
+          : "Action approuvée",
       });
 
       return true;
     } catch (err) {
       console.error("Failed to approve request:", err);
       toast({
-        title: "Error",
-        description: "Failed to approve request",
+        title: "Erreur",
+        description: "Impossible d'approuver la demande",
         variant: "destructive",
       });
       return false;
@@ -194,7 +203,8 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
   const rejectRequest = useCallback(async (
     stepNumber: number,
     userId: string,
-    reason?: string
+    reason?: string,
+    operator?: { operator_id: string; operator_name: string; role: string }
   ): Promise<boolean> => {
     const request = approvalRequests.get(`${stepNumber}`);
     if (!request) return false;
@@ -206,6 +216,13 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
         user_id: userId,
         rejected_at: new Date().toISOString(),
         reason,
+        ...(operator
+          ? {
+              operator_id: operator.operator_id,
+              operator_name: operator.operator_name,
+              operator_role: operator.role,
+            }
+          : {}),
       };
 
       const { error } = await supabase
@@ -219,7 +236,6 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
 
       if (error) throw error;
 
-      // Update local state
       setApprovalRequests((prev) => {
         const next = new Map(prev);
         const updated = { ...request, status: "rejected" as const, rejections: [...request.rejections, newRejection] };
@@ -228,16 +244,18 @@ export function useApprovalRequests({ organizationId, projectId }: UseApprovalRe
       });
 
       toast({
-        title: "Rejected",
-        description: "Action has been rejected",
+        title: "Refusé",
+        description: operator
+          ? `Refusé par ${operator.operator_name} (${operator.role})`
+          : "Action refusée",
       });
 
       return true;
     } catch (err) {
       console.error("Failed to reject request:", err);
       toast({
-        title: "Error",
-        description: "Failed to reject request",
+        title: "Erreur",
+        description: "Impossible de refuser la demande",
         variant: "destructive",
       });
       return false;
