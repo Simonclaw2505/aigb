@@ -20,9 +20,16 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, KeyRound, CheckCircle2 } from "lucide-react";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
+
+const AUTH_TYPES = [
+  { value: "bearer", label: "Bearer Token" },
+  { value: "api_key", label: "API Key (header)" },
+  { value: "custom_header", label: "Custom Header" },
+  { value: "none", label: "Aucune auth" },
+];
 
 interface EndpointRow {
   id: string;
@@ -61,17 +68,56 @@ export function EditToolDialog({ open, onOpenChange, toolId, onChanged }: EditTo
   const [newDesc, setNewDesc] = useState("");
   const [adding, setAdding] = useState(false);
 
+  // Connector / token state
+  const [connectorId, setConnectorId] = useState<string | null>(null);
+  const [hasCredential, setHasCredential] = useState(false);
+  const [authType, setAuthType] = useState<string>("bearer");
+  const [authHeaderName, setAuthHeaderName] = useState("Authorization");
+  const [authPrefix, setAuthPrefix] = useState("Bearer");
+  const [tokenValue, setTokenValue] = useState("");
+  const [savingToken, setSavingToken] = useState(false);
+  const [projectCtx, setProjectCtx] = useState<{ id: string; org: string } | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data: src } = await supabase
         .from("api_sources")
-        .select("name, description")
+        .select("name, description, project_id")
         .eq("id", toolId)
         .single();
       if (src) {
         setName(src.name);
         setDescription(src.description || "");
+        if (src.project_id) {
+          const { data: proj } = await supabase
+            .from("projects")
+            .select("organization_id")
+            .eq("id", src.project_id)
+            .single();
+          if (proj) setProjectCtx({ id: src.project_id, org: proj.organization_id });
+
+          const { data: conn } = await supabase
+            .from("api_connectors")
+            .select("id, auth_type, auth_config, credential_secret_id, base_url")
+            .eq("api_source_id", toolId)
+            .eq("project_id", src.project_id)
+            .maybeSingle();
+          if (conn) {
+            setConnectorId(conn.id);
+            setAuthType(conn.auth_type || "bearer");
+            const cfg = (conn.auth_config as Record<string, string>) || {};
+            setAuthHeaderName(cfg.header_name || "Authorization");
+            setAuthPrefix(cfg.prefix ?? "Bearer");
+            setHasCredential(!!conn.credential_secret_id);
+            setBaseUrl(conn.base_url || "");
+          } else {
+            setConnectorId(null);
+            setHasCredential(false);
+            setBaseUrl("");
+          }
+        }
       }
       const { data: eps } = await supabase
         .from("endpoints")
@@ -157,6 +203,73 @@ export function EditToolDialog({ open, onOpenChange, toolId, onChanged }: EditTo
     }
   };
 
+  const handleSaveToken = async () => {
+    if (!projectCtx) {
+      toast.error("Cet outil n'est pas rattaché à un agent — impossible de stocker un token.");
+      return;
+    }
+    if (!tokenValue.trim() && authType !== "none") {
+      toast.error("Veuillez saisir un token");
+      return;
+    }
+    setSavingToken(true);
+    try {
+      let credentialSecretId: string | null = null;
+
+      if (authType !== "none" && tokenValue.trim()) {
+        const secretName = connectorId
+          ? `connector_cred_${connectorId}`
+          : `connector_cred_${projectCtx.id}_${Date.now()}`;
+        const { data: stored, error: secErr } = await supabase.functions.invoke("secrets-manager", {
+          body: {
+            action: "store",
+            secret_name: secretName,
+            secret_value: tokenValue.trim(),
+            organization_id: projectCtx.org,
+            project_id: projectCtx.id,
+            description: `API credential for ${name} tool`,
+          },
+        });
+        if (secErr) throw new Error(secErr.message || "Échec stockage token");
+        credentialSecretId = stored?.secret_id ?? null;
+      }
+
+      const payload = {
+        organization_id: projectCtx.org,
+        project_id: projectCtx.id,
+        api_source_id: toolId,
+        name,
+        base_url: baseUrl || "https://api.example.com",
+        auth_type: authType,
+        auth_config: { header_name: authHeaderName, prefix: authType === "custom_header" ? "" : authPrefix },
+        ...(credentialSecretId ? { credential_secret_id: credentialSecretId } : {}),
+        is_active: true,
+      };
+
+      if (connectorId) {
+        const { error } = await supabase.from("api_connectors").update(payload).eq("id", connectorId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from("api_connectors")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw error;
+        setConnectorId(data.id);
+      }
+
+      setHasCredential(!!credentialSecretId || hasCredential);
+      setTokenValue("");
+      toast.success("Token enregistré de manière sécurisée");
+      onChanged?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSavingToken(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -186,6 +299,74 @@ export function EditToolDialog({ open, onOpenChange, toolId, onChanged }: EditTo
                 {saving && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
                 Enregistrer les infos
               </Button>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-primary" />
+                <Label className="text-base font-medium">Authentification / Token</Label>
+                {hasCredential && (
+                  <Badge variant="outline" className="ml-auto bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Token configuré
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Le token est stocké de manière chiffrée (AES-GCM) côté serveur et utilisé par le mode Live du simulateur.
+              </p>
+
+              {!projectCtx ? (
+                <p className="text-xs text-amber-600">
+                  ⚠️ Cet outil n'est rattaché à aucun agent — importez-le d'abord dans un agent pour pouvoir y associer un token.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Type d'auth</Label>
+                      <Select value={authType} onValueChange={setAuthType}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {AUTH_TYPES.map((a) => (
+                            <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Header</Label>
+                      <Input className="h-9" value={authHeaderName} onChange={(e) => setAuthHeaderName(e.target.value)} />
+                    </div>
+                  </div>
+                  {(authType === "bearer" || authType === "api_key") && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Préfixe (ex: Bearer)</Label>
+                      <Input className="h-9" value={authPrefix} onChange={(e) => setAuthPrefix(e.target.value)} />
+                    </div>
+                  )}
+                  {authType !== "none" && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Token / API Key</Label>
+                      <Input
+                        type="password"
+                        className="h-9"
+                        placeholder={hasCredential ? "•••••••• (laisser vide pour conserver)" : "xoxb-... ou sk-..."}
+                        value={tokenValue}
+                        onChange={(e) => setTokenValue(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={handleSaveToken} disabled={savingToken}>
+                      {savingToken && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                      Enregistrer le token
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
 
             <Separator />
