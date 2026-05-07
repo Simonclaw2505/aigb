@@ -182,11 +182,13 @@ export function useUsageRecords(organizationId: string | null, days = 30) {
 
         if (error) throw error;
 
-        setRecords(data as UsageRecord[]);
+        const typedRecords = (data ?? []) as UsageRecord[];
+
+        setRecords(typedRecords);
 
         // Aggregate by day
         const byDay = new Map<string, { calls: number; cost_microcents: number }>();
-        for (const record of data || []) {
+        for (const record of typedRecords) {
           const day = record.created_at.slice(0, 10);
           const existing = byDay.get(day) ?? { calls: 0, cost_microcents: 0 };
           existing.calls += 1;
