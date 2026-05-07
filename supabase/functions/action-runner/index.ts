@@ -600,6 +600,35 @@ serve(async (req) => {
     let retriesUsed = 0;
 
     if (connector) {
+      // Refuse to run when the connector requires auth but has no credential bound
+      const requiresAuth = !["", "none"].includes((connector.auth_type || "").toLowerCase());
+      if (requiresAuth && !connector.credential_secret_id) {
+        const reason = `Connector "${connector.name}" has no credential configured. Open Tools, edit the ${connector.name} connector and paste your API token to enable real execution.`;
+        await supabase
+          .from("execution_runs")
+          .update({
+            status: "failed",
+            error_message: reason,
+            completed_at: new Date().toISOString(),
+            duration_ms: Date.now() - startTime,
+            redacted_response: { error: reason },
+          })
+          .eq("id", executionId);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            execution_id: executionId,
+            status: "failed",
+            error: reason,
+            retries_used: 0,
+            duration_ms: Date.now() - startTime,
+            redacted_request: redactSensitiveData(modifiedInputs) as Record<string, unknown>,
+            redacted_response: { error: reason },
+          } as ActionResult),
+          { status: 424, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Get credentials from secrets (server-side only)
       let authHeaders: Record<string, string> = {};
 
