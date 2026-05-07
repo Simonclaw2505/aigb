@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Shield, Lock, Eye } from "lucide-react";
 import aigLogo from "@/assets/aig-logo.svg";
