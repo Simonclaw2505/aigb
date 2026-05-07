@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { ToolLibrary } from "@/components/tools/ToolLibrary";
 import { ManageToolAgentsDialog } from "@/components/tools/ManageToolAgentsDialog";
+import { EditToolDialog } from "@/components/tools/EditToolDialog";
 import {
   Wrench,
   Plus,
@@ -38,6 +39,7 @@ import {
   Plug,
   BookOpen,
   Bot,
+  Pencil,
 } from "lucide-react";
 
 interface Tool {
@@ -60,6 +62,7 @@ export default function Tools() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [manageAgentsTool, setManageAgentsTool] = useState<{ id: string; name: string } | null>(null);
+  const [editingToolId, setEditingToolId] = useState<string | null>(null);
 
   const { organization } = useCurrentProject();
 
@@ -233,6 +236,16 @@ export default function Tools() {
                           {tool.description || "Pas de description"}
                         </CardDescription>
                       </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => setEditingToolId(tool.id)}
+                          title="Modifier"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
@@ -267,6 +280,7 @@ export default function Tools() {
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap items-center gap-2">
@@ -317,6 +331,15 @@ export default function Tools() {
           toolId={manageAgentsTool.id}
           toolName={manageAgentsTool.name}
           organizationId={organization.id}
+          onChanged={fetchTools}
+        />
+      )}
+
+      {editingToolId && (
+        <EditToolDialog
+          open={!!editingToolId}
+          onOpenChange={(o) => !o && setEditingToolId(null)}
+          toolId={editingToolId}
           onChanged={fetchTools}
         />
       )}
