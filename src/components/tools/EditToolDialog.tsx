@@ -203,6 +203,73 @@ export function EditToolDialog({ open, onOpenChange, toolId, onChanged }: EditTo
     }
   };
 
+  const handleSaveToken = async () => {
+    if (!projectCtx) {
+      toast.error("Cet outil n'est pas rattaché à un agent — impossible de stocker un token.");
+      return;
+    }
+    if (!tokenValue.trim() && authType !== "none") {
+      toast.error("Veuillez saisir un token");
+      return;
+    }
+    setSavingToken(true);
+    try {
+      let credentialSecretId: string | null = null;
+
+      if (authType !== "none" && tokenValue.trim()) {
+        const secretName = connectorId
+          ? `connector_cred_${connectorId}`
+          : `connector_cred_${projectCtx.id}_${Date.now()}`;
+        const { data: stored, error: secErr } = await supabase.functions.invoke("secrets-manager", {
+          body: {
+            action: "store",
+            secret_name: secretName,
+            secret_value: tokenValue.trim(),
+            organization_id: projectCtx.org,
+            project_id: projectCtx.id,
+            description: `API credential for ${name} tool`,
+          },
+        });
+        if (secErr) throw new Error(secErr.message || "Échec stockage token");
+        credentialSecretId = stored?.secret_id ?? null;
+      }
+
+      const payload = {
+        organization_id: projectCtx.org,
+        project_id: projectCtx.id,
+        api_source_id: toolId,
+        name,
+        base_url: baseUrl || "https://api.example.com",
+        auth_type: authType,
+        auth_config: { header_name: authHeaderName, prefix: authType === "custom_header" ? "" : authPrefix },
+        ...(credentialSecretId ? { credential_secret_id: credentialSecretId } : {}),
+        is_active: true,
+      };
+
+      if (connectorId) {
+        const { error } = await supabase.from("api_connectors").update(payload).eq("id", connectorId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from("api_connectors")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw error;
+        setConnectorId(data.id);
+      }
+
+      setHasCredential(!!credentialSecretId || hasCredential);
+      setTokenValue("");
+      toast.success("Token enregistré de manière sécurisée");
+      onChanged?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSavingToken(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
