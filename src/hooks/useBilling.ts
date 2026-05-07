@@ -7,6 +7,18 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+type UntypedQueryResult = PromiseLike<{ data: unknown; error: unknown }> & {
+  select: (...args: unknown[]) => UntypedQueryResult;
+  eq: (...args: unknown[]) => UntypedQueryResult;
+  gte: (...args: unknown[]) => UntypedQueryResult;
+  order: (...args: unknown[]) => UntypedQueryResult;
+  limit: (...args: unknown[]) => UntypedQueryResult;
+  maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+};
+
+const fromUntyped = (table: string) =>
+  supabase.from(table as never) as unknown as UntypedQueryResult;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -84,8 +96,7 @@ export function useBillingAccount(organizationId: string | null) {
 
     try {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
-        .from("billing_accounts")
+      const { data, error: fetchError } = await fromUntyped("billing_accounts")
         .select(`
           *,
           billing_plans:plan_id (*)
@@ -122,8 +133,7 @@ export function useBillingPlans() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const { data, error } = await supabase
-          .from("billing_plans")
+        const { data, error } = await fromUntyped("billing_plans")
           .select("*")
           .eq("is_active", true)
           .order("base_price_cents", { ascending: true });
@@ -163,8 +173,7 @@ export function useUsageRecords(organizationId: string | null, days = 30) {
         const since = new Date();
         since.setDate(since.getDate() - days);
 
-        const { data, error } = await supabase
-          .from("usage_records")
+        const { data, error } = await fromUntyped("usage_records")
           .select("id, project_id, tool_name, method, cost_microcents, created_at")
           .eq("organization_id", organizationId)
           .gte("created_at", since.toISOString())
@@ -173,11 +182,13 @@ export function useUsageRecords(organizationId: string | null, days = 30) {
 
         if (error) throw error;
 
-        setRecords(data as UsageRecord[]);
+        const typedRecords = (data ?? []) as UsageRecord[];
+
+        setRecords(typedRecords);
 
         // Aggregate by day
         const byDay = new Map<string, { calls: number; cost_microcents: number }>();
-        for (const record of data || []) {
+        for (const record of typedRecords) {
           const day = record.created_at.slice(0, 10);
           const existing = byDay.get(day) ?? { calls: 0, cost_microcents: 0 };
           existing.calls += 1;
@@ -219,8 +230,7 @@ export function useInvoices(organizationId: string | null) {
       }
 
       try {
-        const { data, error } = await supabase
-          .from("billing_invoices")
+        const { data, error } = await fromUntyped("billing_invoices")
           .select("*")
           .eq("organization_id", organizationId)
           .order("created_at", { ascending: false })
