@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/supabase-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { signInSchema, signUpSchema, evaluatePasswordStrength } from "@/lib/validators";
 import { Loader2, Shield, Lock, Eye } from "lucide-react";
 import aigLogo from "@/assets/aig-logo.svg";
@@ -29,6 +30,8 @@ export default function Auth() {
   const [activeTab, setActiveTab] = useState("signin");
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -86,6 +89,35 @@ export default function Auth() {
       setLoading(false);
     }
   }, [email, password, loginAttempts, lockedUntil, isLockedOut, navigate, toast]);
+
+  const handleForgotPassword = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFieldErrors({});
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      setFieldErrors({ email: "Adresse e-mail invalide" });
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast({
+        title: "E-mail envoyé",
+        description: "Si un compte existe pour cette adresse, vous recevrez un lien de réinitialisation.",
+      });
+      setForgotMode(false);
+    } catch {
+      toast({
+        title: "E-mail envoyé",
+        description: "Si un compte existe pour cette adresse, vous recevrez un lien de réinitialisation.",
+      });
+      setForgotMode(false);
+    } finally {
+      setForgotLoading(false);
+    }
+  }, [email, toast]);
 
   const handleSignUp = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,6 +259,41 @@ export default function Auth() {
               </TabsList>
 
               <TabsContent value="signin">
+                {forgotMode ? (
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email" className="text-xs font-medium">Adresse e-mail</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="vous@entreprise.fr"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        disabled={forgotLoading}
+                        autoComplete="email"
+                        className="h-11 rounded-lg"
+                      />
+                      {fieldErrors.email && (
+                        <p className="text-sm text-destructive">{fieldErrors.email}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Nous vous enverrons un lien pour réinitialiser votre mot de passe.
+                      </p>
+                    </div>
+                    <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={forgotLoading}>
+                      {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Envoyer le lien
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => { setForgotMode(false); setFieldErrors({}); }}
+                      className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Retour à la connexion
+                    </button>
+                  </form>
+                ) : (
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email" className="text-xs font-medium">Adresse e-mail</Label>
@@ -246,7 +313,16 @@ export default function Auth() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password" className="text-xs font-medium">Mot de passe</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="signin-password" className="text-xs font-medium">Mot de passe</Label>
+                      <button
+                        type="button"
+                        onClick={() => { setForgotMode(true); setFieldErrors({}); }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Mot de passe oublié ?
+                      </button>
+                    </div>
                     <Input
                       id="signin-password"
                       type="password"
@@ -267,6 +343,7 @@ export default function Auth() {
                     {isLockedOut ? "Verrouillé temporairement" : "Se connecter"}
                   </Button>
                 </form>
+                )}
               </TabsContent>
 
               <TabsContent value="signup">
