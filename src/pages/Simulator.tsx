@@ -488,10 +488,10 @@ export default function Simulator() {
             actionName={step.action_name}
             description={step.description}
             approvalRequest={getApprovalForStep(step.step_number)}
-            isAdmin={isAdmin}
+            agentId={selectedProjectId}
             onRequestApproval={() => handleRequestApproval(step)}
-            onApprove={() => handleApproveStep(step.step_number)}
-            onReject={() => handleRejectStep(step.step_number)}
+            onApprove={(op) => handleApproveStep(step.step_number, op)}
+            onReject={(op) => handleRejectStep(step.step_number, op)}
             isLoading={approvalsLoading}
           />
         )}
