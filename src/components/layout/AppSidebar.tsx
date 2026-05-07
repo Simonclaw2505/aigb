@@ -68,16 +68,16 @@ const configItems = [
 
 const supervisionItems = [
   {
-    title: "Connecter un agent IA",
-    url: "/export",
-    icon: Download,
-    hint: "Récupérez l'endpoint MCP pour connecter Claude, GPT ou tout autre agent IA.",
-  },
-  {
     title: "Tester mon agent",
     url: "/simulator",
     icon: TestTube,
     hint: "Simulez des appels d'agents avant de les mettre en production.",
+  },
+  {
+    title: "Connecter mon agent IA",
+    url: "/export",
+    icon: Download,
+    hint: "Récupérez l'endpoint MCP pour connecter Claude, GPT ou tout autre agent IA.",
   },
   {
     title: "Audit sécurité",
@@ -187,12 +187,12 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border p-4">
         {/* Status indicator */}
         {!collapsed && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 mb-3 rounded-lg bg-[hsl(152,60%,42%)]/8 border border-[hsl(152,60%,42%)]/15">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 mb-3 rounded-lg bg-success/8 border border-success/15">
             <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(152,60%,42%)] opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[hsl(152,60%,42%)]" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
             </span>
-            <span className="text-xs text-[hsl(152,60%,52%)] font-medium">Système actif</span>
+            <span className="text-xs text-success font-medium">Système actif</span>
           </div>
         )}
         {/* User */}

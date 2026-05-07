@@ -1,79 +1,70 @@
+## Objectif
 
-## Plan : CriticalActionGuard + édition d'outils
+Rendre l'UI plus cohérente : réordonner les CTA du Dashboard ("Tester mon agent" avant "Connecter mon agent"), déplacer les blocs vers les bonnes zones (Configuration / Supervision) et harmoniser les éléments visuels récurrents.
 
-### Partie 1 — `CriticalActionGuard` sur la page Permissions
+---
 
-**Pourquoi cette page ?** C'est l'endroit le plus sensible : cocher une case dans `UserPermissionsPanel` accorde à un rôle opérateur (member, viewer, etc.) le droit d'exécuter une action — y compris des actions classées `high` ou `critical` (DELETE, écritures, etc.). Aucune confirmation forte n'existe aujourd'hui : un simple clic suffit, ce qui est exactement le scénario décrit ("passer de read à read+write").
+## 1. Refonte du Dashboard (`src/pages/Dashboard.tsx`)
 
-**Nouveau composant** : `src/components/security/CriticalActionGuard.tsx`
-- Wrapper réutilisable autour de `ConfirmActionDialog` existant
-- API simple :
-  ```tsx
-  <CriticalActionGuard
-    trigger={<Checkbox ... />}
-    actionName="Autoriser DELETE /users pour le rôle member"
-    description="..."
-    estimatedImpact="Tous les opérateurs 'member' pourront supprimer des utilisateurs"
-    requiresOperatorKey={true}
-    agentId={agentId}
-    onConfirm={(operatorInfo) => togglePermission(...)}
-  />
-  ```
-- Réutilise la vérif clé opérateur via `verify-operator-key` (déjà sécurisée)
-- Logge dans `audit_logs` après confirmation : qui (operator), quoi (rôle + action), quand
+Actuellement le Dashboard contient tout dans une seule colonne checklist + activité récente. On le restructure en 3 zones miroir de la sidebar.
 
-**Intégration dans `UserPermissionsPanel.tsx`** :
-- Quand on coche une action de risque `high` ou `critical` → ouvre `CriticalActionGuard` avant `togglePermission`
-- Quand on décoche n'importe quelle action déjà autorisée de risque ≥ `medium` → idem (révocation = critique aussi)
-- Risque `read_only` / `low` → toggle direct sans friction
+### Nouvelle structure
 
-**Logging audit** :
-```ts
-await supabase.from("audit_logs").insert({
-  organization_id, user_id, resource_type: "permission_rule",
-  resource_id: actionId, action: checked ? "grant" : "revoke",
-  metadata: { role, action_name, risk_level, operator_id, operator_name }
-});
+```text
+[ Bandeau statut système ]
+[ Bienvenue + bouton Nouvel Agent ]
+[ Stats (3 cards) ]
+
+┌─ Configuration ──────────────┐  ┌─ Supervision ────────────────┐
+│ 1. Connecter une application │  │ • Tester mon agent  →        │
+│ 2. Créer un agent            │  │ • Connecter mon agent IA →   │
+│ 3. Définir les actions       │  │ • Activité récente (liste)   │
+│ 4. Régler les permissions    │  │                              │
+└──────────────────────────────┘  └──────────────────────────────┘
 ```
 
----
+### Changements précis
 
-### Partie 2 — Éditer les outils existants dans `/tools` (onglet "Mes outils")
+- **Onboarding checklist (colonne gauche, "Configuration")** : conserve les étapes liées au setup (outil, agent, actions, permissions). On retire les étapes `apikey` et `connect` de la checklist car elles deviennent des CTA dédiés à droite.
+- **Colonne droite ("Supervision")** : 
+  1. **CTA "Tester mon agent"** (vers `/simulator`) — placé en premier car ordre logique : on teste avant de brancher en prod. Icône `TestTube`, accent primary.
+  2. **CTA "Connecter mon agent IA"** (vers `/export`) — Icône `Download`. Affiche un mini-aperçu (badge "Endpoint MCP prêt" si `apiKeysCount > 0`, sinon "Créer une clé d'abord" → `/settings`).
+  3. **Activité récente** (liste compacte 5 dernières entrées, lien "Voir tout" → `/audit-logs`).
 
-**Problème** : aujourd'hui, dans "Mes outils", on ne peut que supprimer. Impossible d'ajouter un endpoint à un outil existant après création.
+- Les deux CTA Test/Connect sont des cards cliquables avec : titre, courte description, icône à droite, hover bg-muted/40.
 
-**Solution** : nouveau composant `src/components/tools/EditToolDialog.tsx`
-- Bouton crayon ✏️ sur chaque carte d'outil (à côté de la corbeille)
-- Dialog avec :
-  - **Infos générales** : nom, description (update sur `api_sources`)
-  - **Endpoints** : liste des endpoints existants depuis la table `endpoints`, avec :
-    - Suppression individuelle (delete row)
-    - Ajout d'un nouveau (méthode + path + nom + description) → insert dans `endpoints` avec `api_source_id` du tool
-  - Réutilise le pattern UI de `ToolLibraryForm` (méthode + path inline, badge couleur par méthode)
-- Recharge `fetchTools()` à la fermeture pour mettre à jour le compteur d'endpoints
+### Détail technique
 
-**Modifications** :
-- `src/pages/Tools.tsx` : ajouter état `editingToolId`, bouton crayon, render `<EditToolDialog>`
-- Nouveau fichier `EditToolDialog.tsx`
+- État `apiKeysCount` toujours fetché (déjà présent) pour conditionner le CTA "Connecter".
+- Suppression du `<Progress>` de la checklist redevient pertinent (4 étapes au lieu de 4 — on garde mais ajusté).
+- Conserver `allDone` mais basé sur les 4 nouvelles étapes config.
 
 ---
 
-### Détails techniques
+## 2. Revue de cohérence GUI globale
 
-**RLS** :
-- `endpoints` : insert/delete OK pour `member`+ via policy existante (`Members can manage endpoints`)
-- `api_sources` : update OK pour `member`+ via policy existante
-- `audit_logs` : insert OK pour tout authentifié
-- Aucune migration nécessaire
+### A. Sidebar (`AppSidebar.tsx`) — déjà bien structurée, micro-ajustements
 
-**Fichiers créés** :
-- `src/components/security/CriticalActionGuard.tsx`
-- `src/components/tools/EditToolDialog.tsx`
+- Réordonner `supervisionItems` pour mettre **"Tester mon agent" AVANT "Connecter un agent IA"** (cohérence avec dashboard).
+- Renommer "Connecter un agent IA" → **"Connecter mon agent IA"** (cohérence singulier possessif comme "Mes agents IA").
 
-**Fichiers modifiés** :
-- `src/components/permissions/UserPermissionsPanel.tsx` (wrap toggle + audit log)
-- `src/pages/Tools.tsx` (bouton edit + dialog)
+### B. Headers de page — uniformisation
 
-**Hors scope** (à confirmer si tu veux) :
-- Étendre `CriticalActionGuard` à d'autres pages (ex: rotation de clés API, suppression d'agent, changement de rôle org)
-- Édition des paramètres de connecteur (auth, secret) dans `EditToolDialog` — pour l'instant je couvre seulement nom/desc/endpoints
+Vérifier que toutes les pages utilisent `DashboardLayout` avec `title` + `description` cohérents. Pages à vérifier rapidement : `Tools`, `Agents` (Projects), `Actions`, `Permissions`, `Simulator`, `Export`, `Security`, `AuditLogs`, `Settings`, `Billing`. Aucun changement de fond, juste alignement des titres en français orienté PME (ex: éviter "Projects", utiliser "Mes agents IA").
+
+### C. Tokens visuels récurrents
+
+- Bandeau "Système opérationnel" du Dashboard et "Système actif" de la sidebar : harmoniser la couleur (utiliser le token `success` partout au lieu du HSL hardcodé `hsl(152,60%,42%)` dans la sidebar).
+- Boutons primaires : tous en `rounded-lg` (déjà majoritaire).
+- Cards : toutes en `border-border/50` (déjà le standard du Dashboard).
+
+### Fichiers modifiés
+
+- `src/pages/Dashboard.tsx` — refonte structure 2 colonnes Configuration/Supervision
+- `src/components/layout/AppSidebar.tsx` — réordonner supervision + harmoniser couleur statut + renommage
+
+### Hors scope
+
+- Pas de modification de logique métier ni de routes.
+- Pas de refonte des pages enfants (Tools, Agents, etc.) au-delà d'un éventuel renommage de titre si incohérent.
+- Pas de nouveaux composants partagés extraits — on garde le code inline dans Dashboard pour rester simple.
