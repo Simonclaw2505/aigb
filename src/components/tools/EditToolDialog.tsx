@@ -303,6 +303,74 @@ export function EditToolDialog({ open, onOpenChange, toolId, onChanged }: EditTo
 
             <Separator />
 
+            <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-primary" />
+                <Label className="text-base font-medium">Authentification / Token</Label>
+                {hasCredential && (
+                  <Badge variant="outline" className="ml-auto bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Token configuré
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Le token est stocké de manière chiffrée (AES-GCM) côté serveur et utilisé par le mode Live du simulateur.
+              </p>
+
+              {!projectCtx ? (
+                <p className="text-xs text-amber-600">
+                  ⚠️ Cet outil n'est rattaché à aucun agent — importez-le d'abord dans un agent pour pouvoir y associer un token.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Type d'auth</Label>
+                      <Select value={authType} onValueChange={setAuthType}>
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {AUTH_TYPES.map((a) => (
+                            <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Header</Label>
+                      <Input className="h-9" value={authHeaderName} onChange={(e) => setAuthHeaderName(e.target.value)} />
+                    </div>
+                  </div>
+                  {(authType === "bearer" || authType === "api_key") && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Préfixe (ex: Bearer)</Label>
+                      <Input className="h-9" value={authPrefix} onChange={(e) => setAuthPrefix(e.target.value)} />
+                    </div>
+                  )}
+                  {authType !== "none" && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Token / API Key</Label>
+                      <Input
+                        type="password"
+                        className="h-9"
+                        placeholder={hasCredential ? "•••••••• (laisser vide pour conserver)" : "xoxb-... ou sk-..."}
+                        value={tokenValue}
+                        onChange={(e) => setTokenValue(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={handleSaveToken} disabled={savingToken}>
+                      {savingToken && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                      Enregistrer le token
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <Separator />
+
             <div className="space-y-3">
               <Label className="text-base font-medium">Endpoints ({endpoints.length})</Label>
 
