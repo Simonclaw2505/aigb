@@ -246,6 +246,92 @@ function applyBodyTemplate(template: unknown, inputs: Record<string, unknown>): 
   return template;
 }
 
+/**
+ * Slack-specific input normalization.
+ * Slack chat.* methods require very specific field names.
+ * The AI planner often produces aliases like `message` instead of `text`,
+ * or human channel names like `général` instead of a Slack channel id.
+ */
+function isSlackUrl(baseUrl: string | null | undefined, path: string): boolean {
+  const url = `${baseUrl || ""}${path || ""}`.toLowerCase();
+  return url.includes("slack.com");
+}
+
+function normalizeSlackChannelName(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  let v = raw.trim();
+  if (!v) return undefined;
+  // strip leading # or @
+  v = v.replace(/^[#@]/, "");
+  // common french → slack default
+  const lower = v.toLowerCase();
+  if (lower === "général" || lower === "general" || lower === "généraux") return "general";
+  return v;
+}
+
+async function resolveSlackChannelId(
+  channelName: string,
+  authHeaders: Record<string, string>
+): Promise<string | null> {
+  // already a Slack id (C/G/D + uppercase alphanum)
+  if (/^[CGD][A-Z0-9]{6,}$/.test(channelName)) return channelName;
+  try {
+    let cursor = "";
+    for (let i = 0; i < 5; i++) {
+      const url = `https://slack.com/api/conversations.list?limit=200&types=public_channel,private_channel${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+      const res = await fetch(url, { headers: authHeaders });
+      const data = await res.json();
+      if (!data?.ok) return null;
+      const target = channelName.toLowerCase();
+      const match = (data.channels || []).find((c: { name: string }) => c.name?.toLowerCase() === target);
+      if (match) return match.id;
+      cursor = data.response_metadata?.next_cursor || "";
+      if (!cursor) break;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function normalizeSlackInputs(
+  path: string,
+  inputs: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...inputs };
+
+  // Flatten nested body
+  if (out.body && typeof out.body === "object" && !Array.isArray(out.body)) {
+    Object.assign(out, out.body as Record<string, unknown>);
+    delete out.body;
+  }
+
+  const lowerPath = (path || "").toLowerCase();
+
+  // Messaging: needs `text` and `channel`
+  if (lowerPath.includes("/chat.postmessage") ||
+      lowerPath.includes("/chat.postephemeral") ||
+      lowerPath.includes("/chat.update") ||
+      lowerPath.includes("/chat.schedulemessage")) {
+    // Map content aliases → text
+    if (!out.text || typeof out.text !== "string" || !out.text.toString().trim()) {
+      const aliases = ["message", "content", "body_text", "msg", "value"];
+      for (const a of aliases) {
+        if (typeof out[a] === "string" && (out[a] as string).trim()) {
+          out.text = out[a];
+          delete out[a];
+          break;
+        }
+      }
+    }
+    // Normalize channel
+    const ch = normalizeSlackChannelName(out.channel);
+    if (ch) out.channel = ch;
+  }
+
+  return out;
+}
+
 // AES-GCM decryption helper for stored credentials
 // SECURITY: No fallback — refuses to operate without encryption key
 async function decryptValue(encryptedB64: string): Promise<string> {
