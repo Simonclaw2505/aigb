@@ -18,22 +18,14 @@ export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ready, setReady] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Supabase auto-handles the recovery token from the URL hash on load.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        setReady(true);
-      }
-    });
-    // Also check existing session in case the event already fired
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
-    return () => subscription.unsubscribe();
+    // Ensure Supabase processes the recovery token from the URL hash.
+    // The client auto-handles `#access_token=...` on load (detectSessionInUrl).
+    const sub = supabase.auth.onAuthStateChange(() => {});
+    return () => sub.data.subscription.unsubscribe();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,7 +42,11 @@ export default function ResetPassword() {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      toast({ variant: "destructive", title: "Échec", description: error.message });
+      toast({
+        variant: "destructive",
+        title: "Lien invalide ou expiré",
+        description: "Demandez un nouveau lien depuis la page de connexion.",
+      });
       return;
     }
     toast({ title: "Mot de passe mis à jour", description: "Vous pouvez maintenant vous connecter." });
@@ -72,44 +68,38 @@ export default function ResetPassword() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-7 pb-7">
-            {!ready ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Lien invalide ou expiré. Demandez un nouveau lien depuis la page de connexion.
-              </p>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new-password" className="text-xs font-medium">Nouveau mot de passe</Label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoComplete="new-password"
-                    className="h-11 rounded-lg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password" className="text-xs font-medium">Confirmer le mot de passe</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    required
-                    autoComplete="new-password"
-                    className="h-11 rounded-lg"
-                  />
-                </div>
-                <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Mettre à jour le mot de passe
-                </Button>
-              </form>
-            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password" className="text-xs font-medium">Nouveau mot de passe</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  className="h-11 rounded-lg"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password" className="text-xs font-medium">Confirmer le mot de passe</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  className="h-11 rounded-lg"
+                />
+              </div>
+              <Button type="submit" className="w-full h-11 rounded-lg text-sm font-medium mt-2" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Mettre à jour le mot de passe
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
