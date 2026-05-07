@@ -222,15 +222,20 @@ serve(async (req) => {
           }
         } else if (capability.policy === "require_approval") {
           requiresApproval = true;
-          
-          // Check if approval was provided for this specific step
-          if (mode === "execute") {
-            const stepApproved = approved_steps?.includes(step.step_number) || approval_id;
-            if (!stepApproved) {
-              allowed = false;
-              denialReason = "Action requires approval before execution";
-            }
-          }
+        }
+      }
+
+      // Template-level approval flag (independent of capability)
+      if (action.requires_approval === true) {
+        requiresApproval = true;
+      }
+
+      // In execute mode, enforce approval if required (regardless of source)
+      if (requiresApproval && mode === "execute") {
+        const stepApproved = approved_steps?.includes(step.step_number) || approval_id;
+        if (!stepApproved) {
+          allowed = false;
+          denialReason = "En attente d'approbation humaine — exécution bloquée";
         }
 
         // Check rate limits
