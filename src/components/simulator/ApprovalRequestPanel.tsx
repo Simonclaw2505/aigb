@@ -14,9 +14,14 @@ import {
   Loader2,
   ShieldCheck,
   Send,
+  KeyRound,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
+import {
+  ApproveWithOperatorKeyDialog,
+  type OperatorInfo,
+} from "./ApproveWithOperatorKeyDialog";
 
 interface ApprovalRequest {
   id: string;
@@ -32,11 +37,12 @@ interface ApprovalRequestPanelProps {
   actionName: string;
   description: string;
   approvalRequest: ApprovalRequest | null;
-  isAdmin: boolean;
+  agentId: string;
   onRequestApproval: () => Promise<void>;
-  onApprove: () => Promise<void>;
-  onReject: () => Promise<void>;
+  onApprove: (operator: OperatorInfo) => Promise<void>;
+  onReject: (operator: OperatorInfo) => Promise<void>;
   isLoading?: boolean;
+  allowedRoles?: string[];
 }
 
 export function ApprovalRequestPanel({
