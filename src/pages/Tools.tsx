@@ -334,6 +334,15 @@ export default function Tools() {
           onChanged={fetchTools}
         />
       )}
+
+      {editingToolId && (
+        <EditToolDialog
+          open={!!editingToolId}
+          onOpenChange={(o) => !o && setEditingToolId(null)}
+          toolId={editingToolId}
+          onChanged={fetchTools}
+        />
+      )}
     </DashboardLayout>
   );
 }
