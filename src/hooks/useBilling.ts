@@ -7,7 +7,17 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-const billingDb = supabase as any;
+type UntypedQueryBuilder = {
+  select: (...args: unknown[]) => UntypedQueryBuilder;
+  eq: (...args: unknown[]) => UntypedQueryBuilder;
+  gte: (...args: unknown[]) => UntypedQueryBuilder;
+  order: (...args: unknown[]) => UntypedQueryBuilder;
+  limit: (...args: unknown[]) => UntypedQueryBuilder;
+  maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+};
+
+const fromUntyped = (table: string) =>
+  supabase.from(table as never) as unknown as UntypedQueryBuilder;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -86,8 +96,7 @@ export function useBillingAccount(organizationId: string | null) {
 
     try {
       setLoading(true);
-      const { data, error: fetchError } = await billingDb
-        .from("billing_accounts")
+      const { data, error: fetchError } = await fromUntyped("billing_accounts")
         .select(`
           *,
           billing_plans:plan_id (*)
@@ -124,8 +133,7 @@ export function useBillingPlans() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const { data, error } = await billingDb
-          .from("billing_plans")
+        const { data, error } = await fromUntyped("billing_plans")
           .select("*")
           .eq("is_active", true)
           .order("base_price_cents", { ascending: true });
@@ -165,8 +173,7 @@ export function useUsageRecords(organizationId: string | null, days = 30) {
         const since = new Date();
         since.setDate(since.getDate() - days);
 
-        const { data, error } = await billingDb
-          .from("usage_records")
+        const { data, error } = await fromUntyped("usage_records")
           .select("id, project_id, tool_name, method, cost_microcents, created_at")
           .eq("organization_id", organizationId)
           .gte("created_at", since.toISOString())
@@ -221,8 +228,7 @@ export function useInvoices(organizationId: string | null) {
       }
 
       try {
-        const { data, error } = await billingDb
-          .from("billing_invoices")
+        const { data, error } = await fromUntyped("billing_invoices")
           .select("*")
           .eq("organization_id", organizationId)
           .order("created_at", { ascending: false })
