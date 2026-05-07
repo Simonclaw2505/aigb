@@ -617,11 +617,16 @@ export default function Simulator() {
                   )}
 
                   {plan.requires_approval && (
-                    <Alert>
-                      <Shield className="h-4 w-4" />
-                      <AlertTitle>Approval Required</AlertTitle>
-                      <AlertDescription>
-                        {plan.approval_reasons.join(", ")}
+                    <Alert variant="destructive" className="border-2 border-warning/70 bg-warning/15 text-foreground">
+                      <ShieldAlert className="h-5 w-5 text-warning" />
+                      <AlertTitle className="font-bold text-base">
+                        Approbation humaine requise — exécution bloquée
+                      </AlertTitle>
+                      <AlertDescription className="space-y-1">
+                        <p>{plan.approval_reasons.join(", ")}</p>
+                        <p className="text-xs opacity-80">
+                          Tant qu'un administrateur n'a pas approuvé chaque étape concernée, le bouton « Execute Plan » reste désactivé et aucun appel API ne sera envoyé.
+                        </p>
                       </AlertDescription>
                     </Alert>
                   )}
