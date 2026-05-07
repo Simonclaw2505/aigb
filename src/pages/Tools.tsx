@@ -236,6 +236,16 @@ export default function Tools() {
                           {tool.description || "Pas de description"}
                         </CardDescription>
                       </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => setEditingToolId(tool.id)}
+                          title="Modifier"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
