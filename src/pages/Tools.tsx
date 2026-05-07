@@ -280,6 +280,7 @@ export default function Tools() {
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap items-center gap-2">
