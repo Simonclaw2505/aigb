@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { ToolLibrary } from "@/components/tools/ToolLibrary";
 import { ManageToolAgentsDialog } from "@/components/tools/ManageToolAgentsDialog";
+import { EditToolDialog } from "@/components/tools/EditToolDialog";
 import {
   Wrench,
   Plus,
@@ -38,6 +39,7 @@ import {
   Plug,
   BookOpen,
   Bot,
+  Pencil,
 } from "lucide-react";
 
 interface Tool {
@@ -60,6 +62,7 @@ export default function Tools() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [manageAgentsTool, setManageAgentsTool] = useState<{ id: string; name: string } | null>(null);
+  const [editingToolId, setEditingToolId] = useState<string | null>(null);
 
   const { organization } = useCurrentProject();
 
