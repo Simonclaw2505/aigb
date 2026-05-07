@@ -7,17 +7,17 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-type UntypedQueryBuilder = {
-  select: (...args: unknown[]) => UntypedQueryBuilder;
-  eq: (...args: unknown[]) => UntypedQueryBuilder;
-  gte: (...args: unknown[]) => UntypedQueryBuilder;
-  order: (...args: unknown[]) => UntypedQueryBuilder;
-  limit: (...args: unknown[]) => UntypedQueryBuilder;
+type UntypedQueryResult = PromiseLike<{ data: unknown; error: unknown }> & {
+  select: (...args: unknown[]) => UntypedQueryResult;
+  eq: (...args: unknown[]) => UntypedQueryResult;
+  gte: (...args: unknown[]) => UntypedQueryResult;
+  order: (...args: unknown[]) => UntypedQueryResult;
+  limit: (...args: unknown[]) => UntypedQueryResult;
   maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
 };
 
 const fromUntyped = (table: string) =>
-  supabase.from(table as never) as unknown as UntypedQueryBuilder;
+  supabase.from(table as never) as unknown as UntypedQueryResult;
 
 // ---------------------------------------------------------------------------
 // Types
