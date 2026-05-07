@@ -759,13 +759,64 @@ serve(async (req) => {
         );
       }
     } else {
-      // No connector - simulate execution
-      apiResponse = {
-        simulated: true,
-        action: action.name,
-        inputs: modifiedInputs,
-        timestamp: new Date().toISOString(),
-      };
+      // No connector available — refuse to fake a success in real execution mode
+      const reason = !endpoint
+        ? `Action "${action.name}" is not linked to any endpoint. Open the action in /actions and bind it to its API endpoint.`
+        : `No active API connector found for this action's tool. Configure the connector (and its credential) in /tools.`;
+
+      await supabase
+        .from("execution_runs")
+        .update({
+          status: "failed",
+          error_message: reason,
+          completed_at: new Date().toISOString(),
+          duration_ms: Date.now() - startTime,
+          redacted_response: { error: reason },
+        })
+        .eq("id", executionId);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          execution_id: executionId,
+          status: "failed",
+          error: reason,
+          retries_used: 0,
+          duration_ms: Date.now() - startTime,
+          redacted_request: redactSensitiveData(modifiedInputs) as Record<string, unknown>,
+          redacted_response: { error: reason },
+        } as ActionResult),
+        { status: 424, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Also fail clearly when a connector exists but has no credential and the API is not public
+    if (connector && !connector.credential_secret_id && !["", "none"].includes(connector.auth_type)) {
+      const reason = `Connector "${connector.name}" has no credential configured. Add the API token in /tools to enable real execution.`;
+      await supabase
+        .from("execution_runs")
+        .update({
+          status: "failed",
+          error_message: reason,
+          completed_at: new Date().toISOString(),
+          duration_ms: Date.now() - startTime,
+          redacted_response: { error: reason },
+        })
+        .eq("id", executionId);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          execution_id: executionId,
+          status: "failed",
+          error: reason,
+          retries_used: 0,
+          duration_ms: Date.now() - startTime,
+          redacted_request: redactSensitiveData(modifiedInputs) as Record<string, unknown>,
+          redacted_response: { error: reason },
+        } as ActionResult),
+        { status: 424, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Update execution run with success
