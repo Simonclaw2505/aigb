@@ -344,7 +344,6 @@ export default function Auth() {
                   </Button>
                 </form>
                 )}
-                </form>
               </TabsContent>
 
               <TabsContent value="signup">
