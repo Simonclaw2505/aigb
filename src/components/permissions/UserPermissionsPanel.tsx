@@ -14,6 +14,23 @@ import {
   useAgentPermissionRules,
 } from "@/hooks/useAgentPermissions";
 import type { Database } from "@/integrations/supabase/types";
+import { ConfirmActionDialog } from "@/components/simulator/ConfirmActionDialog";
+import { supabase } from "@/integrations/supabase/client";
+
+interface PendingChange {
+  role: AppRole;
+  actionId: string;
+  actionName: string;
+  riskLevel: string;
+  toAllow: boolean;
+}
+
+const isCritical = (risk: string, currentlyAllowed: boolean) => {
+  // Granting a high/critical action OR revoking any non-read action requires confirmation
+  if (risk === "critical" || risk === "high") return true;
+  if (currentlyAllowed && risk !== "read_only" && risk !== "low") return true;
+  return false;
+};
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -46,6 +63,42 @@ export function UserPermissionsPanel({ agentId, organizationId }: UserPermission
   const { tools, loading: toolsLoading } = useAgentToolsAndActions(agentId);
   const { isAllowed, togglePermission, loading: permsLoading } = useAgentPermissionRules(agentId, organizationId);
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
+  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
+
+  const handleToggle = (role: AppRole, actionId: string, actionName: string, riskLevel: string, checked: boolean) => {
+    const currentlyAllowed = isAllowed(role, actionId);
+    if (isCritical(riskLevel, currentlyAllowed)) {
+      setPendingChange({ role, actionId, actionName, riskLevel, toAllow: checked });
+      return;
+    }
+    void togglePermission(role, actionId, actionName, checked);
+  };
+
+  const confirmChange = async (operatorInfo?: { operator_id: string; operator_name: string; role: string }) => {
+    if (!pendingChange) return;
+    await togglePermission(pendingChange.role, pendingChange.actionId, pendingChange.actionName, pendingChange.toAllow);
+    // Audit log
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from("audit_logs").insert({
+        organization_id: organizationId,
+        user_id: user?.id ?? null,
+        resource_type: "permission_rule",
+        resource_id: pendingChange.actionId,
+        action: pendingChange.toAllow ? "permission.grant" : "permission.revoke",
+        metadata: {
+          agent_id: agentId,
+          role: pendingChange.role,
+          action_name: pendingChange.actionName,
+          risk_level: pendingChange.riskLevel,
+          confirmed_by_operator: operatorInfo ?? null,
+        },
+      });
+    } catch {
+      // non-blocking
+    }
+    setPendingChange(null);
+  };
 
   const loading = rolesLoading || toolsLoading || permsLoading;
 
@@ -165,7 +218,7 @@ export function UserPermissionsPanel({ agentId, organizationId }: UserPermission
                                 <Checkbox
                                   checked={allowed}
                                   onCheckedChange={(checked) => {
-                                    togglePermission(role, action.id, action.name, !!checked);
+                                    handleToggle(role, action.id, action.name, action.risk_level, !!checked);
                                   }}
                                 />
                                 <div className="flex-1 min-w-0">
