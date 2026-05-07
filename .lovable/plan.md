@@ -1,55 +1,47 @@
-## Objectif
-Fiabiliser l’envoi Slack depuis le simulateur pour que `create_chatpostmessage` exécute réellement `chat.postMessage` avec les bons champs attendus par Slack.
+## Problème constaté
+- Quand le plan affiche « Approval Required », cliquer « Execute Plan » exécute quand même l'action.
+- L'alerte d'approbation est trop discrète et passe inaperçue.
 
-## Constats vérifiés
-- L’action `create_chatpostmessage` existe bien sur l’endpoint `POST /chat.postMessage`.
-- Son `input_schema` est vide et ses `constraints` ne contiennent aucun `body_template`.
-- Le simulateur montre aujourd’hui un preview du type `{ channel: "general", message: "Hello world" }`.
-- En exécution réelle, sans transformation, Slack reçoit `message` au lieu de `text` et renvoie donc `error: "no_text"`.
-- Le précédent `not_in_channel` prouve qu’à un moment le champ texte passait bien ; le bug restant est donc la normalisation des inputs, pas le token lui-même.
+## Cause racine
+Dans `supabase/functions/execute-plan/index.ts`, le flag `requiresApproval` n'est positionné **que** si une `agent_capability` existe avec `policy = "require_approval"`. Or `generate-plan` lève le flag aussi quand `action.requires_approval = true` au niveau du template (sans capability). Résultat : côté exécution, aucun `capability` → `requiresApproval = false` → pas de blocage → l'action part directement, même si le plan a affiché « Approval Required ».
 
-## Plan
-### 1. Corriger la normalisation des payloads Slack
-- Ajouter une règle explicite pour les endpoints Slack de messaging, en particulier `/chat.postMessage`.
-- Transformer automatiquement les aliases métier vers le format Slack attendu :
-  - `message` -> `text`
-  - conserver `text` s’il est déjà fourni
-  - garder `channel` tel quel, puis le normaliser si besoin
-- Faire cette transformation côté moteur d’exécution pour qu’elle s’applique même si le plan IA propose `message` au lieu de `text`.
+Côté UI, `getStepsNeedingApproval()` repose sur `result.permission_check.requires_approval`, qui vient d'execute-plan. Comme ce dernier ne le marque pas, `canExecuteNow()` renvoie `true` et le bouton « Execute » est actif.
 
-### 2. Sécuriser aussi la génération d’actions Slack
-- Enrichir l’action `create_chatpostmessage` avec un `input_schema` clair pour guider le planificateur :
-  - `channel: string`
-  - `text: string`
-  - éventuellement accepter `message` comme alias côté UX
-- Ajouter un `body_template` dédié pour Slack afin que le payload final soit toujours cohérent, indépendamment du wording généré par l’IA.
+## Plan de correction
 
-### 3. Gérer le nom de canal humain vs identifiant Slack
-- Ajouter une résolution côté exécution pour convertir un nom convivial comme `général`, `general` ou `#general` vers un canal Slack réel.
-- Si nécessaire, appeler `conversations.list` puis matcher par nom avant `chat.postMessage`.
-- Si aucun canal n’est trouvé, renvoyer une erreur claire du type : `Canal Slack introuvable: general` au lieu d’une erreur opaque.
+### 1. Backend : bloquer réellement les actions à approbation
+Fichier : `supabase/functions/execute-plan/index.ts`
+- Considérer une action comme nécessitant approbation si **l'une** des conditions est vraie :
+  - `capability.policy === "require_approval"`
+  - `action.requires_approval === true` (flag du template)
+  - `action.risk_level === "irreversible"` (sécurité par défaut)
+- En mode `execute`, si `requiresApproval` est vrai et que `approved_steps` ne contient pas le step (et pas d'`approval_id` legacy), refuser : `allowed = false`, `denial_reason = "En attente d'approbation humaine"`.
+- En mode `dry_run`, renvoyer `status: "pending_approval"` et `permission_check.requires_approval = true` pour que l'UI le reflète.
 
-### 4. Améliorer le simulateur pour éviter les faux positifs
-- Dans le preview, afficher le payload réel qui sera envoyé après transformation, pas seulement les inputs bruts du plan.
-- Exemple attendu dans le simulateur :
-```text
-{
-  "channel": "C123..." ou "general",
-  "text": "Hello world"
-}
-```
-- Cela évite qu’un preview paraisse correct alors que le payload live ne l’est pas.
+### 2. Frontend : rendre l'approbation requise très visible
+Fichier : `src/pages/Simulator.tsx`
+- Transformer l'alerte « Approval Required » en bandeau **destructive** en haut du plan (icône Shield + couleur warning forte, fond contrasté, titre gras « Approbation humaine requise »).
+- Ajouter un badge rouge/orange « Pending approval » sur chaque step concerné dans la liste.
+- Remplacer le bouton « Execute Plan » désactivé par un bouton clairement barré : « Bloqué — approbation requise » avec icône Lock.
+- Ajouter un compteur visible : « 1 étape en attente d'approbation (0/1 approuvée) ».
+- Faire défiler/scroller automatiquement vers le panneau d'approbation au moment du dry-run si `requires_approval`.
 
-### 5. Vérification
-- Tester un dry-run sur un message simple vers `general`.
-- Tester une exécution réelle de `create_chatpostmessage`.
-- Vérifier qu’on n’obtient plus `no_text`.
-- Vérifier que, si le canal public existe, l’erreur `not_in_channel` ne revient pas sur la connexion Slack utilisée.
+### 3. Composant `ApprovalRequestPanel`
+Fichier : `src/components/simulator/ApprovalRequestPanel.tsx`
+- Renforcer la bordure et le fond (warning/destructive selon état) pour qu'on ne le rate pas.
+- Ajouter une icône Shield large + titre « Action bloquée tant que non approuvée ».
+
+### 4. Vérification
+- Sur une action marquée `requires_approval` au niveau template :
+  - Le dry-run doit afficher le step en `pending_approval`.
+  - Le bouton « Execute Plan » doit être désactivé.
+  - Forcer un appel direct à `execute-plan` sans `approved_steps` doit retourner un step `failed` avec `denial_reason` clair, **sans** appeler l'API tierce (Slack).
+- Après « Approve », l'exécution doit passer normalement.
 
 ## Détails techniques
-- Fichier principal à corriger : `supabase/functions/action-runner/index.ts`
-- Donnée à mettre à jour : enregistrement `action_templates` de `create_chatpostmessage` pour ajouter `input_schema` + `constraints.body_template`
-- Amélioration UX possible : affichage du payload transformé dans `src/pages/Simulator.tsx`
-
-## Résultat attendu
-Quand tu demandes “envoie Hello world dans général”, le système doit produire puis envoyer un vrai payload Slack compatible, avec `text` renseigné et un canal résolu correctement.
+- Fichiers modifiés :
+  - `supabase/functions/execute-plan/index.ts` (logique d'évaluation)
+  - `src/pages/Simulator.tsx` (UI bandeau, bouton, badges)
+  - `src/components/simulator/ApprovalRequestPanel.tsx` (renforcement visuel)
+- Aucune migration BDD nécessaire.
+- Déploiement : redeploy de l'edge function `execute-plan`.

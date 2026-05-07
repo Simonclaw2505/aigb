@@ -222,30 +222,35 @@ serve(async (req) => {
           }
         } else if (capability.policy === "require_approval") {
           requiresApproval = true;
-          
-          // Check if approval was provided for this specific step
-          if (mode === "execute") {
-            const stepApproved = approved_steps?.includes(step.step_number) || approval_id;
-            if (!stepApproved) {
-              allowed = false;
-              denialReason = "Action requires approval before execution";
-            }
-          }
         }
+      }
 
-        // Check rate limits
-        if (allowed && capability.max_executions_per_hour) {
-          const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-          const { count } = await supabase
-            .from("execution_runs")
-            .select("*", { count: "exact", head: true })
-            .eq("action_template_id", step.action_template_id)
-            .gte("created_at", hourAgo);
+      // Template-level approval flag (independent of capability)
+      if (action.requires_approval === true) {
+        requiresApproval = true;
+      }
 
-          if ((count || 0) >= capability.max_executions_per_hour) {
-            allowed = false;
-            denialReason = `Rate limit exceeded: ${capability.max_executions_per_hour}/hour`;
-          }
+      // In execute mode, enforce approval if required (regardless of source)
+      if (requiresApproval && mode === "execute") {
+        const stepApproved = approved_steps?.includes(step.step_number) || approval_id;
+        if (!stepApproved) {
+          allowed = false;
+          denialReason = "En attente d'approbation humaine — exécution bloquée";
+        }
+      }
+
+      // Check rate limits
+      if (allowed && capability?.max_executions_per_hour) {
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { count } = await supabase
+          .from("execution_runs")
+          .select("*", { count: "exact", head: true })
+          .eq("action_template_id", step.action_template_id)
+          .gte("created_at", hourAgo);
+
+        if ((count || 0) >= capability.max_executions_per_hour) {
+          allowed = false;
+          denialReason = `Rate limit exceeded: ${capability.max_executions_per_hour}/hour`;
         }
       }
 

@@ -116,20 +116,19 @@ export function ApprovalRequestPanel({
 
   if (!approvalRequest) {
     return (
-      <div className="rounded-lg border border-warning/50 bg-warning/10 p-4 space-y-3">
+      <div className="rounded-lg border-2 border-warning bg-warning/15 p-4 space-y-3 shadow-sm">
         <div className="flex items-center gap-2">
-          <Badge variant="outline">Step {stepNumber}</Badge>
-          <span className="font-medium">{actionName}</span>
+          <ShieldCheck className="h-5 w-5 text-warning" />
+          <Badge variant="destructive">Step {stepNumber}</Badge>
+          <span className="font-bold">{actionName}</span>
         </div>
-        
-        <p className="text-sm text-muted-foreground">
-          {description}
-        </p>
 
-        <Alert>
+        <p className="text-sm text-foreground/90">{description}</p>
+
+        <Alert variant="destructive" className="bg-background/50">
           <ShieldCheck className="h-4 w-4" />
-          <AlertDescription>
-            This action requires approval from an administrator before execution.
+          <AlertDescription className="font-medium">
+            Action bloquée tant qu'un administrateur ne l'a pas approuvée. Aucun appel API ne sera envoyé.
           </AlertDescription>
         </Alert>
 
@@ -137,16 +136,17 @@ export function ApprovalRequestPanel({
           onClick={handleRequestApproval}
           disabled={isLoading || localLoading === "request"}
           className="w-full"
+          size="lg"
         >
           {localLoading === "request" ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Requesting...
+              Demande en cours...
             </>
           ) : (
             <>
               <Send className="h-4 w-4 mr-2" />
-              Request Approval
+              Demander l'approbation
             </>
           )}
         </Button>

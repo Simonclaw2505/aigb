@@ -30,6 +30,8 @@ import {
   Ban,
   FileJson,
   UserCheck,
+  Lock,
+  ShieldAlert,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -615,11 +617,16 @@ export default function Simulator() {
                   )}
 
                   {plan.requires_approval && (
-                    <Alert>
-                      <Shield className="h-4 w-4" />
-                      <AlertTitle>Approval Required</AlertTitle>
-                      <AlertDescription>
-                        {plan.approval_reasons.join(", ")}
+                    <Alert variant="destructive" className="border-2 border-warning/70 bg-warning/15 text-foreground">
+                      <ShieldAlert className="h-5 w-5 text-warning" />
+                      <AlertTitle className="font-bold text-base">
+                        Approbation humaine requise — exécution bloquée
+                      </AlertTitle>
+                      <AlertDescription className="space-y-1">
+                        <p>{plan.approval_reasons.join(", ")}</p>
+                        <p className="text-xs opacity-80">
+                          Tant qu'un administrateur n'a pas approuvé chaque étape concernée, le bouton « Execute Plan » reste désactivé et aucun appel API ne sera envoyé.
+                        </p>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -800,9 +807,15 @@ export default function Simulator() {
                               </Badge>
                             )}
                             {result.permission_check.requires_approval && (
-                              <Badge variant={getApprovalForStep(result.step_number)?.status === "approved" ? "default" : "outline"} className="text-xs gap-1">
-                                <Clock className="h-3 w-3" />
-                                {getApprovalForStep(result.step_number)?.status === "approved" ? "Approved" : "Needs Approval"}
+                              <Badge
+                                variant={getApprovalForStep(result.step_number)?.status === "approved" ? "default" : "destructive"}
+                                className="text-xs gap-1"
+                              >
+                                {getApprovalForStep(result.step_number)?.status === "approved" ? (
+                                  <><CheckCircle className="h-3 w-3" /> Approuvée</>
+                                ) : (
+                                  <><Lock className="h-3 w-3" /> En attente d'approbation</>
+                                )}
                               </Badge>
                             )}
                           </div>
@@ -829,21 +842,25 @@ export default function Simulator() {
                     </Button>
                   ) : (
                     <div className="space-y-4">
-                      <Alert>
-                        <Shield className="h-4 w-4" />
-                        <AlertTitle>Complete Required Actions</AlertTitle>
-                        <AlertDescription>
+                      <Alert variant="destructive" className="border-2 border-warning/70 bg-warning/15">
+                        <ShieldAlert className="h-5 w-5 text-warning" />
+                        <AlertTitle className="font-bold">Exécution bloquée</AlertTitle>
+                        <AlertDescription className="space-y-1">
                           {getStepsNeedingConfirmation().length > 0 && (
-                            <div>• Confirm {getStepsNeedingConfirmation().length} step(s) in the plan above</div>
+                            <div>• Confirmer {getStepsNeedingConfirmation().length} étape(s) ci-dessus</div>
                           )}
                           {getStepsNeedingApproval().length > 0 && (
-                            <div>• Request and obtain {getStepsNeedingApproval().length} approval(s)</div>
+                            <div>
+                              • {getStepsNeedingApproval().length} étape(s) en attente d'approbation humaine — aucun appel API ne sera envoyé tant qu'un admin n'aura pas validé.
+                            </div>
                           )}
                         </AlertDescription>
                       </Alert>
-                      <Button className="w-full" variant="secondary" disabled>
-                        <Ban className="mr-2 h-4 w-4" />
-                        Complete Actions to Execute
+                      <Button className="w-full" variant="secondary" disabled size="lg">
+                        <Lock className="mr-2 h-4 w-4" />
+                        {getStepsNeedingApproval().length > 0
+                          ? "Bloqué — approbation requise"
+                          : "Compléter les actions pour exécuter"}
                       </Button>
                     </div>
                   )}
