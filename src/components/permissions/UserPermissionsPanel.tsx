@@ -247,6 +247,29 @@ export function UserPermissionsPanel({ agentId, organizationId }: UserPermission
           </Collapsible>
         );
       })}
+
+      {pendingChange && (
+        <ConfirmActionDialog
+          open={!!pendingChange}
+          onOpenChange={(o) => { if (!o) setPendingChange(null); }}
+          onConfirm={(opInfo) => confirmChange(opInfo)}
+          onCancel={() => setPendingChange(null)}
+          stepNumber={1}
+          actionName={`${pendingChange.toAllow ? "Autoriser" : "Révoquer"} « ${pendingChange.actionName} » pour le rôle ${pendingChange.role}`}
+          description={
+            pendingChange.toAllow
+              ? `Tous les opérateurs avec le rôle « ${pendingChange.role} » pourront exécuter cette action (risque : ${pendingChange.riskLevel}).`
+              : `Les opérateurs « ${pendingChange.role} » ne pourront plus exécuter cette action.`
+          }
+          estimatedImpact={
+            pendingChange.toAllow
+              ? "Élargit les droits d'exécution. Action sensible, requiert votre identification opérateur."
+              : "Restreint les droits. Les exécutions en cours peuvent échouer."
+          }
+          requiresOperatorKey
+          agentId={agentId}
+        />
+      )}
     </div>
   );
 }
