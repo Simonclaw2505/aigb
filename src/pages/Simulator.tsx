@@ -842,21 +842,25 @@ export default function Simulator() {
                     </Button>
                   ) : (
                     <div className="space-y-4">
-                      <Alert>
-                        <Shield className="h-4 w-4" />
-                        <AlertTitle>Complete Required Actions</AlertTitle>
-                        <AlertDescription>
+                      <Alert variant="destructive" className="border-2 border-warning/70 bg-warning/15">
+                        <ShieldAlert className="h-5 w-5 text-warning" />
+                        <AlertTitle className="font-bold">Exécution bloquée</AlertTitle>
+                        <AlertDescription className="space-y-1">
                           {getStepsNeedingConfirmation().length > 0 && (
-                            <div>• Confirm {getStepsNeedingConfirmation().length} step(s) in the plan above</div>
+                            <div>• Confirmer {getStepsNeedingConfirmation().length} étape(s) ci-dessus</div>
                           )}
                           {getStepsNeedingApproval().length > 0 && (
-                            <div>• Request and obtain {getStepsNeedingApproval().length} approval(s)</div>
+                            <div>
+                              • {getStepsNeedingApproval().length} étape(s) en attente d'approbation humaine — aucun appel API ne sera envoyé tant qu'un admin n'aura pas validé.
+                            </div>
                           )}
                         </AlertDescription>
                       </Alert>
-                      <Button className="w-full" variant="secondary" disabled>
-                        <Ban className="mr-2 h-4 w-4" />
-                        Complete Actions to Execute
+                      <Button className="w-full" variant="secondary" disabled size="lg">
+                        <Lock className="mr-2 h-4 w-4" />
+                        {getStepsNeedingApproval().length > 0
+                          ? "Bloqué — approbation requise"
+                          : "Compléter les actions pour exécuter"}
                       </Button>
                     </div>
                   )}
